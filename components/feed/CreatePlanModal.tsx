@@ -3,6 +3,7 @@ import {
   Alert, KeyboardAvoidingView, Modal, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native'
+import { geocode } from '../../lib/geocode'
 import { supabase } from '../../lib/supabase'
 import { colors, font, radii, spacing } from '../../lib/theme'
 
@@ -98,6 +99,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, userId }:
     const end = toISO(endDate)
 
     setLoading(true)
+    const coords = await geocode(location.trim())
     const { error } = await supabase.from('plans').insert({
       user_id: userId,
       title: title.trim(),
@@ -106,6 +108,8 @@ export default function CreatePlanModal({ visible, onClose, onCreated, userId }:
       start_date: start,
       end_date: end,
       visibility,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
     })
     setLoading(false)
 

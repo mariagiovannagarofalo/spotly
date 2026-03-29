@@ -8,7 +8,7 @@ import {
 import { geocode } from '../../lib/geocode'
 import i18n from '../../lib/i18n'
 import { supabase } from '../../lib/supabase'
-import { colors, font, radii, spacing } from '../../lib/theme'
+import { colors, font, planColors, radii, spacing } from '../../lib/theme'
 import { Plan, Profile } from '../../types'
 import FriendSearch from './FriendSearch'
 import LocationSearch from './LocationSearch'
@@ -54,12 +54,12 @@ const TIMEZONES: { value: string; label: string; city: string }[] = [
   { value: 'UTC', label: 'UTC', city: 'UTC' },
 ]
 
-const RECURRENCE_OPTIONS: { value: Recurrence; label: string }[] = [
-  { value: 'none', label: 'Mai' },
-  { value: 'daily', label: 'Ogni giorno' },
-  { value: 'weekly', label: 'Ogni settimana' },
-  { value: 'monthly', label: 'Ogni mese' },
-  { value: 'yearly', label: 'Ogni anno' },
+const RECURRENCE_OPTIONS: { value: Recurrence; labelKey: string }[] = [
+  { value: 'none', labelKey: 'recurrence.none' },
+  { value: 'daily', labelKey: 'recurrence.daily' },
+  { value: 'weekly', labelKey: 'recurrence.weekly' },
+  { value: 'monthly', labelKey: 'recurrence.monthly' },
+  { value: 'yearly', labelKey: 'recurrence.yearly' },
 ]
 
 const ACTIVITIES = [
@@ -73,15 +73,10 @@ const ACTIVITIES = [
   { value: 'altro', labelKey: 'plan.activity_other', icon: '📌' },
 ]
 
-const PLAN_COLORS = [
-  '#6C63FF', '#FF6584', '#43C6AC', '#F7971E',
-  '#4facfe', '#43e97b', '#fa709a', '#fee140',
-]
-
 const VISIBILITY_OPTIONS = [
-  { value: 'public', label: 'Tutti', icon: '🌍' },
-  { value: 'friends', label: 'Amici', icon: '👥' },
-  { value: 'private', label: 'Solo io', icon: '🔒' },
+  { value: 'public', labelKey: 'plan.visibility_public', icon: '🌍' },
+  { value: 'friends', labelKey: 'plan.visibility_friends', icon: '👥' },
+  { value: 'private', labelKey: 'plan.visibility_private', icon: '🔒' },
 ]
 
 function parseDate(iso?: string | null): DateFields {
@@ -126,7 +121,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
   const [activity, setActivity] = useState('')
-  const [color, setColor] = useState(PLAN_COLORS[0])
+  const [color, setColor] = useState(planColors[0])
   const [startDate, setStartDate] = useState<DateFields>(emptyDate())
   const [endDate, setEndDate] = useState<DateFields>(emptyDate())
   const [visibility, setVisibility] = useState('friends')
@@ -149,7 +144,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
       setLatitude((plan as any).latitude ?? null)
       setLongitude((plan as any).longitude ?? null)
       setActivity(plan.activity ?? '')
-      setColor(plan.color ?? PLAN_COLORS[0])
+      setColor(plan.color ?? planColors[0])
       setStartDate(parseDate(plan.start_date))
       setEndDate(parseDate(plan.end_date))
       setVisibility(plan.visibility)
@@ -179,7 +174,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
   async function pickPhoto() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') {
-      Alert.alert('Permesso necessario', 'Consenti l\'accesso alla galleria nelle impostazioni.')
+      Alert.alert(i18n.t('profile.permission_needed'), i18n.t('profile.permission_body'))
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -188,14 +183,14 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
     })
     if (result.canceled || !result.assets[0]) return
     const asset = result.assets[0]
-    if (!asset.base64) { Alert.alert('Errore', 'Impossibile leggere la foto.'); return }
+    if (!asset.base64) { Alert.alert(i18n.t('plan.error'), i18n.t('plan.photo_error')); return }
     setPhotoUploading(true)
     const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg'
     const fileName = `plan-${Date.now()}.${ext}`
     const { data, error } = await supabase.storage
       .from('plan-photos')
       .upload(fileName, decode(asset.base64), { contentType: `image/${ext}`, upsert: true })
-    if (error) { Alert.alert('Errore upload', error.message); setPhotoUploading(false); return }
+    if (error) { Alert.alert(i18n.t('plan.upload_error'), error.message); setPhotoUploading(false); return }
     const { data: urlData } = supabase.storage.from('plan-photos').getPublicUrl(data.path)
     setPhotoUrl(urlData.publicUrl)
     setPhotoUploading(false)
@@ -204,7 +199,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
   function reset() {
     setTitle(''); setDescription(''); setLocation('')
     setLatitude(null); setLongitude(null); setActivity('')
-    setColor(PLAN_COLORS[0]); setStartDate(emptyDate()); setEndDate(emptyDate())
+    setColor(planColors[0]); setStartDate(emptyDate()); setEndDate(emptyDate())
     setVisibility('friends'); setTaggedFriends([])
     setAllDay(true); setStartTime(''); setEndTime('')
     setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)
@@ -213,12 +208,12 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
 
   async function handleSave() {
     if (!title.trim() || !location.trim()) {
-      Alert.alert('Campi obbligatori', 'Inserisci titolo e location.')
+      Alert.alert(i18n.t('plan.required_fields'), i18n.t('plan.required_body'))
       return
     }
     const start = toISO(startDate)
     if (!start) {
-      Alert.alert('Data obbligatoria', 'Inserisci giorno, mese e anno di inizio.')
+      Alert.alert(i18n.t('plan.required_date'), i18n.t('plan.required_date_body'))
       return
     }
 
@@ -253,11 +248,11 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
 
     if (isEditing) {
       const { error } = await supabase.from('plans').update(payload).eq('id', plan!.id)
-      if (error) { Alert.alert('Errore', error.message); setLoading(false); return }
+      if (error) { Alert.alert(i18n.t('plan.error'), error.message); setLoading(false); return }
     } else {
       const { data: newPlan, error } = await supabase
         .from('plans').insert({ user_id: userId, ...payload }).select().single()
-      if (error) { Alert.alert('Errore', error.message); setLoading(false); return }
+      if (error) { Alert.alert(i18n.t('plan.error'), error.message); setLoading(false); return }
       if (taggedFriends.length > 0 && newPlan) {
         await supabase.from('plan_participants').insert(
           taggedFriends.map(f => ({ plan_id: newPlan.id, user_id: f.id }))
@@ -272,12 +267,12 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
 
   async function handleDelete() {
     if (!plan) return
-    Alert.alert('Elimina piano', 'Sei sicuro di voler eliminare questo piano?', [
-      { text: 'Annulla', style: 'cancel' },
+    Alert.alert(i18n.t('plan.delete_confirm'), i18n.t('plan.delete_confirm_body'), [
+      { text: i18n.t('plan.cancel'), style: 'cancel' },
       {
-        text: 'Elimina', style: 'destructive', onPress: async () => {
+        text: i18n.t('plan.delete'), style: 'destructive', onPress: async () => {
           const { error } = await supabase.from('plans').delete().eq('id', plan.id)
-          if (error) { Alert.alert('Errore', error.message); return }
+          if (error) { Alert.alert(i18n.t('plan.error'), error.message); return }
           reset()
           onDeleted?.()
         }
@@ -291,7 +286,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
         <View style={s.handle} />
 
         <View style={s.headerRow}>
-          <Text style={s.headerTitle}>{isEditing ? 'Modifica piano' : i18n.t('plan.new_title')}</Text>
+          <Text style={s.headerTitle}>{isEditing ? i18n.t('plan.edit_title') : i18n.t('plan.new_title')}</Text>
           <View style={s.headerActions}>
             {isEditing && (
               <TouchableOpacity onPress={handleDelete} style={s.deleteBtn}>
@@ -322,7 +317,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
 
           <Text style={s.label}>{i18n.t('plan.color_label')}</Text>
           <View style={s.colorRow}>
-            {PLAN_COLORS.map(c => (
+            {planColors.map(c => (
               <TouchableOpacity
                 key={c}
                 style={[s.colorCircle, { backgroundColor: c }, color === c && s.colorCircleActive]}
@@ -350,20 +345,20 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
           <DateInput label={i18n.t('plan.start_date')} value={startDate} onChange={setStartDate} />
           <DateInput label={i18n.t('plan.end_date')} value={endDate} onChange={setEndDate} />
 
-          {/* Orario */}
-          <Text style={s.label}>Orario</Text>
+          {/* Time */}
+          <Text style={s.label}>{i18n.t('plan.time_label')}</Text>
           <View style={s.timeToggleRow}>
             <TouchableOpacity
               style={[s.timeToggleBtn, allDay && s.timeToggleBtnActive]}
               onPress={() => setAllDay(true)}
             >
-              <Text style={[s.timeToggleText, allDay && s.timeToggleTextActive]}>📅 Tutto il giorno</Text>
+              <Text style={[s.timeToggleText, allDay && s.timeToggleTextActive]}>{i18n.t('plan.all_day')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[s.timeToggleBtn, !allDay && s.timeToggleBtnActive]}
               onPress={() => setAllDay(false)}
             >
-              <Text style={[s.timeToggleText, !allDay && s.timeToggleTextActive]}>🕐 Orario specifico</Text>
+              <Text style={[s.timeToggleText, !allDay && s.timeToggleTextActive]}>{i18n.t('plan.specific_time')}</Text>
             </TouchableOpacity>
           </View>
           {!allDay && (
@@ -389,7 +384,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
                   maxLength={5}
                 />
               </View>
-              <Text style={[s.label, { marginTop: spacing.sm }]}>Fuso orario</Text>
+              <Text style={[s.label, { marginTop: spacing.sm }]}>{i18n.t('plan.timezone_label')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tzScroll}>
                 {TIMEZONES.map(tz => {
                   const isActive = timezone === tz.value
@@ -408,8 +403,8 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
             </>
           )}
 
-          {/* Si ripete */}
-          <Text style={s.label}>Si ripete</Text>
+          {/* Recurrence */}
+          <Text style={s.label}>{i18n.t('plan.repeat_label')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.recurrenceScroll}>
             {RECURRENCE_OPTIONS.map(opt => (
               <TouchableOpacity
@@ -418,7 +413,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
                 onPress={() => setRecurrence(opt.value)}
               >
                 <Text style={[s.recurrenceText, recurrence === opt.value && s.recurrenceTextActive]}>
-                  {opt.label}
+                  {i18n.t(opt.labelKey)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -432,8 +427,8 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
             onRemove={id => setTaggedFriends(prev => prev.filter(p => p.id !== id))}
           />
 
-          {/* Foto */}
-          <Text style={s.label}>Foto</Text>
+          {/* Photo */}
+          <Text style={s.label}>{i18n.t('plan.photo_label')}</Text>
           {photoUrl ? (
             <View style={s.photoPreview}>
               <Image source={{ uri: photoUrl }} style={s.photoImg} />
@@ -443,12 +438,12 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
             </View>
           ) : (
             <TouchableOpacity style={s.photoBtn} onPress={pickPhoto} disabled={photoUploading}>
-              <Text style={s.photoBtnText}>{photoUploading ? 'Caricamento...' : '📷  Aggiungi foto'}</Text>
+              <Text style={s.photoBtnText}>{photoUploading ? i18n.t('plan.photo_loading') : i18n.t('plan.photo_add')}</Text>
             </TouchableOpacity>
           )}
 
           {/* Link */}
-          <Text style={s.label}>Link</Text>
+          <Text style={s.label}>{i18n.t('plan.link_label')}</Text>
           <TextInput
             style={s.input}
             placeholder="https://..."
@@ -474,7 +469,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
               >
                 <Text style={s.visIcon}>{opt.icon}</Text>
                 <Text style={[s.visLabel, visibility === opt.value && s.visLabelActive]}>
-                  {opt.label}
+                  {i18n.t(opt.labelKey)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -482,7 +477,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
 
           <TouchableOpacity style={[s.createButton, { backgroundColor: color }]} onPress={handleSave} disabled={loading}>
             <Text style={s.createButtonText}>
-              {loading ? '...' : isEditing ? 'Salva modifiche' : i18n.t('plan.create')}
+              {loading ? '...' : isEditing ? i18n.t('plan.save_changes') : i18n.t('plan.create')}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -494,8 +489,8 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   handle: {
-    width: 40, height: 4, backgroundColor: '#333',
-    borderRadius: 2, alignSelf: 'center', marginTop: spacing.sm + 4,
+    width: 40, height: 4, backgroundColor: colors.dimmed,
+    borderRadius: radii.xs, alignSelf: 'center', marginTop: spacing.sm + 4,
   },
   headerRow: {
     flexDirection: 'row', justifyContent: 'space-between',

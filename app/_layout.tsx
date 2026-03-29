@@ -3,6 +3,7 @@ import * as Linking from 'expo-linking'
 import { Slot } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { View } from 'react-native'
+import { colors } from '../lib/theme'
 import { supabase } from '../lib/supabase'
 import Auth from './auth'
 
@@ -40,7 +41,7 @@ export default function RootLayout() {
     }
   }, [])
 
-  if (loading) return <View style={{ flex: 1, backgroundColor: '#0a0a0a' }} />
+  if (loading) return <View style={{ flex: 1, backgroundColor: colors.bg }} />
 
   return session ? <Slot /> : <Auth />
 }

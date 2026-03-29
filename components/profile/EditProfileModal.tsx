@@ -87,8 +87,8 @@ export default function EditProfileModal({ visible, onClose, onSaved, initialVal
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   handle: {
-    width: 40, height: 4, backgroundColor: '#333',
-    borderRadius: 2, alignSelf: 'center', marginTop: spacing.sm + 4,
+    width: 40, height: 4, backgroundColor: colors.dimmed,
+    borderRadius: radii.xs, alignSelf: 'center', marginTop: spacing.sm + 4,
   },
   headerRow: {
     flexDirection: 'row', justifyContent: 'space-between',

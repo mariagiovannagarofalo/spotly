@@ -1,5 +1,6 @@
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import i18n from '../../lib/i18n'
+import { getEventHeight, getEventTop, tzLabel } from '../../lib/calendarUtils'
 import { colors, font, radii, spacing } from '../../lib/theme'
 import { Plan } from '../../types'
 
@@ -18,32 +19,10 @@ type Props = {
   onNext: () => void
 }
 
-function tzLabel(iana: string): string {
-  try {
-    return new Intl.DateTimeFormat('en', { timeZone: iana, timeZoneName: 'short' })
-      .formatToParts(new Date())
-      .find(p => p.type === 'timeZoneName')?.value ?? iana
-  } catch { return iana }
-}
-
 function formatFullDate(iso: string) {
   return new Date(iso + 'T12:00:00').toLocaleDateString(i18n.locale, {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
-}
-
-function getEventTop(plan: Plan): number {
-  if (!plan.start_time) return 0
-  const [h, m] = plan.start_time.split(':').map(Number)
-  return (h - START_HOUR) * ROW_HEIGHT + (m / 60) * ROW_HEIGHT
-}
-
-function getEventHeight(plan: Plan): number {
-  if (!plan.start_time || !plan.end_time) return ROW_HEIGHT
-  const [sh, sm] = plan.start_time.split(':').map(Number)
-  const [eh, em] = plan.end_time.split(':').map(Number)
-  const mins = (eh * 60 + em) - (sh * 60 + sm)
-  return Math.max(ROW_HEIGHT * 0.5, (mins / 60) * ROW_HEIGHT)
 }
 
 export default function DayView({ date, plans, onPrev, onNext }: Props) {
@@ -72,7 +51,7 @@ export default function DayView({ date, plans, onPrev, onNext }: Props) {
       {allDayPlans.length > 0 && (
         <View style={s.allDaySection}>
           <View style={s.allDayLabelBox}>
-            <Text style={s.allDayLabel}>tutto{'\n'}giorno</Text>
+            <Text style={s.allDayLabel}>{i18n.t('calendar.all_day')}</Text>
           </View>
           <View style={s.allDayList}>
             {allDayPlans.map(p => (
@@ -109,7 +88,7 @@ export default function DayView({ date, plans, onPrev, onNext }: Props) {
             {/* No timed plans message */}
             {timedPlans.length === 0 && (
               <View style={s.emptyGrid}>
-                <Text style={s.emptyText}>Nessun piano con orario</Text>
+                <Text style={s.emptyText}>{i18n.t('calendar.no_timed_plans')}</Text>
               </View>
             )}
 
@@ -119,8 +98,8 @@ export default function DayView({ date, plans, onPrev, onNext }: Props) {
                 key={p.id}
                 style={[s.event, {
                   backgroundColor: p.color ?? colors.primary,
-                  top: getEventTop(p),
-                  height: getEventHeight(p),
+                  top: getEventTop(p, START_HOUR, ROW_HEIGHT),
+                  height: getEventHeight(p, START_HOUR, ROW_HEIGHT),
                 }]}
               >
                 <Text style={s.eventTitle} numberOfLines={2}>{p.title}</Text>
@@ -148,7 +127,7 @@ const s = StyleSheet.create({
     alignItems: 'center', marginBottom: spacing.sm,
   },
   navBtn: { padding: spacing.sm },
-  navArrow: { color: colors.white, fontSize: 28, fontWeight: '300' },
+  navArrow: { color: colors.white, ...font.heading, fontWeight: '300' },
   dateTitle: {
     color: colors.white, ...font.label,
     flex: 1, textAlign: 'center', textTransform: 'capitalize',
@@ -158,7 +137,7 @@ const s = StyleSheet.create({
     flexDirection: 'row', paddingBottom: spacing.sm,
   },
   allDayLabelBox: { width: TIME_COL_WIDTH, paddingTop: 4 },
-  allDayLabel: { color: colors.textDim, fontSize: 9, textAlign: 'right', paddingRight: spacing.xs },
+  allDayLabel: { color: colors.textDim, ...font.micro, textAlign: 'right', paddingRight: spacing.xs },
   allDayList: { flex: 1, gap: spacing.xs },
   allDayCard: {
     backgroundColor: colors.card, borderRadius: radii.sm,
@@ -178,7 +157,7 @@ const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  timeLabel: { color: colors.textDim, fontSize: 10, textAlign: 'right', paddingRight: spacing.xs },
+  timeLabel: { color: colors.textDim, ...font.tiny, textAlign: 'right', paddingRight: spacing.xs },
 
   dayCol: {
     width: DAY_COL_WIDTH,
@@ -212,5 +191,5 @@ const s = StyleSheet.create({
   eventTitle: { color: colors.white, ...font.label },
   eventTime: { color: 'rgba(255,255,255,0.8)', ...font.small, marginTop: 2 },
   eventLocation: { color: 'rgba(255,255,255,0.7)', ...font.small, marginTop: 2 },
-  eventAuthor: { color: 'rgba(255,255,255,0.6)', fontSize: 10, marginTop: 4 },
+  eventAuthor: { color: 'rgba(255,255,255,0.6)', ...font.tiny, marginTop: spacing.xs },
 })

@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { colors, font, radii, spacing } from '../../lib/theme'
+import i18n from '../../lib/i18n'
+import { colors, font, planColors, radii, spacing } from '../../lib/theme'
 
 export type PlanFilters = {
   time: 'all' | 'today' | 'week' | 'month'
@@ -15,34 +16,29 @@ export const DEFAULT_FILTERS: PlanFilters = {
   color: null,
 }
 
-const TIME_OPTIONS = [
-  { value: 'all', label: 'Tutti' },
-  { value: 'today', label: 'Oggi' },
-  { value: 'week', label: '7 giorni' },
-  { value: 'month', label: '30 giorni' },
+const TIME_OPTIONS: { value: PlanFilters['time']; labelKey: string }[] = [
+  { value: 'all', labelKey: 'filter.all' },
+  { value: 'today', labelKey: 'filter.today' },
+  { value: 'week', labelKey: 'filter.week' },
+  { value: 'month', labelKey: 'filter.month' },
 ]
 
-const ACTIVITIES = [
-  { value: 'all', label: 'Tutti', icon: '✦' },
-  { value: 'viaggio', label: 'Viaggio', icon: '✈️' },
-  { value: 'concerto', label: 'Concerto', icon: '🎵' },
-  { value: 'sport', label: 'Sport', icon: '🏃' },
-  { value: 'cena', label: 'Cena', icon: '🍽️' },
-  { value: 'festa', label: 'Festa', icon: '🎉' },
-  { value: 'natura', label: 'Natura', icon: '🌿' },
-  { value: 'arte', label: 'Arte', icon: '🎨' },
-  { value: 'altro', label: 'Altro', icon: '📌' },
-]
-
-const PLAN_COLORS = [
-  '#6C63FF', '#FF6584', '#43C6AC', '#F7971E',
-  '#4facfe', '#43e97b', '#fa709a', '#fee140',
+const ACTIVITIES: { value: string; labelKey: string; icon: string }[] = [
+  { value: 'all', labelKey: 'filter.all', icon: '✦' },
+  { value: 'viaggio', labelKey: 'plan.activity_travel', icon: '✈️' },
+  { value: 'concerto', labelKey: 'plan.activity_concert', icon: '🎵' },
+  { value: 'sport', labelKey: 'plan.activity_sport', icon: '🏃' },
+  { value: 'cena', labelKey: 'plan.activity_dinner', icon: '🍽️' },
+  { value: 'festa', labelKey: 'plan.activity_party', icon: '🎉' },
+  { value: 'natura', labelKey: 'plan.activity_nature', icon: '🌿' },
+  { value: 'arte', labelKey: 'plan.activity_art', icon: '🎨' },
+  { value: 'altro', labelKey: 'plan.activity_other', icon: '📌' },
 ]
 
 type Props = {
   filters: PlanFilters
   onChange: (f: PlanFilters) => void
-  dark?: boolean  // per la mappa (sfondo semi-trasparente)
+  dark?: boolean
 }
 
 export default function FilterBar({ filters, onChange, dark }: Props) {
@@ -53,16 +49,16 @@ export default function FilterBar({ filters, onChange, dark }: Props) {
 
   return (
     <View style={[s.container, { backgroundColor: bg }]}>
-      {/* Riga 1: Tempo + Solo miei + Reset */}
+      {/* Row 1: Time + Only mine + Reset */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.row}>
         {TIME_OPTIONS.map(opt => (
           <TouchableOpacity
             key={opt.value}
             style={[s.chip, filters.time === opt.value && s.chipActive]}
-            onPress={() => onChange({ ...filters, time: opt.value as PlanFilters['time'] })}
+            onPress={() => onChange({ ...filters, time: opt.value })}
           >
             <Text style={[s.chipText, filters.time === opt.value && s.chipTextActive]}>
-              {opt.label}
+              {i18n.t(opt.labelKey)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -71,19 +67,21 @@ export default function FilterBar({ filters, onChange, dark }: Props) {
           style={[s.chip, filters.onlyMine && s.chipActive]}
           onPress={() => onChange({ ...filters, onlyMine: !filters.onlyMine })}
         >
-          <Text style={[s.chipText, filters.onlyMine && s.chipTextActive]}>👤 Solo miei</Text>
+          <Text style={[s.chipText, filters.onlyMine && s.chipTextActive]}>
+            👤 {i18n.t('filter.only_mine')}
+          </Text>
         </TouchableOpacity>
         {hasActive && (
           <>
             <View style={s.sep} />
             <TouchableOpacity style={s.resetBtn} onPress={() => onChange(DEFAULT_FILTERS)}>
-              <Text style={s.resetText}>✕ Reset</Text>
+              <Text style={s.resetText}>✕ {i18n.t('filter.reset')}</Text>
             </TouchableOpacity>
           </>
         )}
       </ScrollView>
 
-      {/* Riga 2: Attività */}
+      {/* Row 2: Activities */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.row}>
         {ACTIVITIES.map(act => (
           <TouchableOpacity
@@ -92,13 +90,13 @@ export default function FilterBar({ filters, onChange, dark }: Props) {
             onPress={() => onChange({ ...filters, activity: act.value })}
           >
             <Text style={[s.chipText, filters.activity === act.value && s.chipTextActive]}>
-              {act.icon} {act.label}
+              {act.icon} {i18n.t(act.labelKey)}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Riga 3: Colori */}
+      {/* Row 3: Colors */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s.row, s.colorRow]}>
         <TouchableOpacity
           style={[s.colorDot, s.colorDotAll, filters.color === null && s.colorDotActive]}
@@ -106,7 +104,7 @@ export default function FilterBar({ filters, onChange, dark }: Props) {
         >
           <Text style={s.colorDotAllText}>✦</Text>
         </TouchableOpacity>
-        {PLAN_COLORS.map(c => (
+        {planColors.map(c => (
           <TouchableOpacity
             key={c}
             style={[s.colorDot, { backgroundColor: c }, filters.color === c && s.colorDotActive]}
@@ -148,6 +146,6 @@ const s = StyleSheet.create({
     backgroundColor: colors.card, borderColor: colors.border,
     justifyContent: 'center', alignItems: 'center',
   },
-  colorDotAllText: { color: colors.textDim, fontSize: 11 },
+  colorDotAllText: { color: colors.textDim, ...font.tiny },
   colorDotActive: { borderColor: colors.white, transform: [{ scale: 1.25 }] },
 })

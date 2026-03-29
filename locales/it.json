@@ -25,7 +25,12 @@
   },
   "plan": {
     "new_title": "Nuovo Piano",
+    "edit_title": "Modifica piano",
     "cancel": "Annulla",
+    "save_changes": "Salva modifiche",
+    "delete": "Elimina",
+    "delete_confirm": "Elimina piano",
+    "delete_confirm_body": "Sei sicuro di voler eliminare questo piano?",
     "title_label": "Titolo *",
     "title_placeholder": "Es. Weekend a Berlino",
     "location_label": "Location *",
@@ -33,8 +38,19 @@
     "activity_label": "Attività",
     "start_date": "Data inizio *",
     "end_date": "Data fine (opzionale)",
+    "time_label": "Orario",
+    "all_day": "📅 Tutto il giorno",
+    "specific_time": "🕐 Orario specifico",
+    "timezone_label": "Fuso orario",
+    "repeat_label": "Si ripete",
     "friends_label": "Con chi? (opzionale)",
     "friends_placeholder": "Cerca username...",
+    "photo_label": "Foto",
+    "photo_add": "📷  Aggiungi foto",
+    "photo_loading": "Caricamento...",
+    "photo_error": "Impossibile leggere la foto.",
+    "upload_error": "Errore upload",
+    "link_label": "Link",
     "description_label": "Descrizione (opzionale)",
     "description_placeholder": "Dettagli, orari, note...",
     "visibility_label": "Visibilità",
@@ -63,6 +79,24 @@
     "people_going_other": "{{count}} persone ci vanno",
     "be_first": "Sii il primo a unirti"
   },
+  "filter": {
+    "all": "Tutti",
+    "today": "Oggi",
+    "week": "7 giorni",
+    "month": "30 giorni",
+    "only_mine": "Solo miei",
+    "reset": "Reset"
+  },
+  "search": {
+    "placeholder": "Cerca titolo, luogo, persona..."
+  },
+  "recurrence": {
+    "none": "Mai",
+    "daily": "Ogni giorno",
+    "weekly": "Ogni settimana",
+    "monthly": "Ogni mese",
+    "yearly": "Ogni anno"
+  },
   "map": {
     "title": "mappa",
     "no_plans": "Nessun piano con location trovata.",
@@ -71,6 +105,8 @@
   "calendar": {
     "title": "calendario",
     "no_plans_day": "Nessun piano per questo giorno.",
+    "all_day": "tutto\ngiorno",
+    "no_timed_plans": "Nessun piano con orario",
     "month": "Mese",
     "week": "Settimana",
     "day": "Giorno"

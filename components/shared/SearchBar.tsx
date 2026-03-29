@@ -1,4 +1,5 @@
 import { StyleSheet, TextInput, TouchableOpacity, View, Text } from 'react-native'
+import i18n from '../../lib/i18n'
 import { colors, font, radii, spacing } from '../../lib/theme'
 
 type Props = {
@@ -8,7 +9,8 @@ type Props = {
   dark?: boolean
 }
 
-export default function SearchBar({ value, onChange, placeholder = 'Cerca titolo, luogo, persona...', dark }: Props) {
+export default function SearchBar({ value, onChange, placeholder, dark }: Props) {
+  const resolvedPlaceholder = placeholder ?? i18n.t('search.placeholder')
   const bg = dark ? 'rgba(20,20,20,0.92)' : colors.input
   const border = dark ? 'rgba(255,255,255,0.1)' : colors.inputBorder
 
@@ -19,7 +21,7 @@ export default function SearchBar({ value, onChange, placeholder = 'Cerca titolo
         style={s.input}
         value={value}
         onChangeText={onChange}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         placeholderTextColor={colors.textPlaceholder}
         autoCapitalize="none"
         autoCorrect={false}

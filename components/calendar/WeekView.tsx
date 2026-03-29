@@ -1,5 +1,6 @@
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import i18n from '../../lib/i18n'
+import { addDays, getEventHeight, getEventTop, tzLabel } from '../../lib/calendarUtils'
 import { colors, font, radii, spacing } from '../../lib/theme'
 import { Plan } from '../../types'
 
@@ -22,34 +23,6 @@ type Props = {
 
 function toISO(date: Date) {
   return date.toISOString().split('T')[0]
-}
-
-function addDays(date: Date, n: number) {
-  const d = new Date(date)
-  d.setDate(d.getDate() + n)
-  return d
-}
-
-function tzLabel(iana: string): string {
-  try {
-    return new Intl.DateTimeFormat('en', { timeZone: iana, timeZoneName: 'short' })
-      .formatToParts(new Date())
-      .find(p => p.type === 'timeZoneName')?.value ?? iana
-  } catch { return iana }
-}
-
-function getEventTop(plan: Plan): number {
-  if (!plan.start_time) return 0
-  const [h, m] = plan.start_time.split(':').map(Number)
-  return (h - START_HOUR) * ROW_HEIGHT + (m / 60) * ROW_HEIGHT
-}
-
-function getEventHeight(plan: Plan): number {
-  if (!plan.start_time || !plan.end_time) return ROW_HEIGHT
-  const [sh, sm] = plan.start_time.split(':').map(Number)
-  const [eh, em] = plan.end_time.split(':').map(Number)
-  const mins = (eh * 60 + em) - (sh * 60 + sm)
-  return Math.max(ROW_HEIGHT * 0.5, (mins / 60) * ROW_HEIGHT)
 }
 
 export default function WeekView({ weekStart, plans, selectedDate, onSelectDate, onPrev, onNext }: Props) {
@@ -114,7 +87,7 @@ export default function WeekView({ weekStart, plans, selectedDate, onSelectDate,
       {hasAllDay && (
         <View style={s.allDayRow}>
           <View style={s.allDayLabelBox}>
-            <Text style={s.allDayLabelText}>tutto{'\n'}giorno</Text>
+            <Text style={s.allDayLabelText}>{i18n.t('calendar.all_day')}</Text>
           </View>
           {days.map((day) => {
             const iso = toISO(day)
@@ -176,8 +149,8 @@ export default function WeekView({ weekStart, plans, selectedDate, onSelectDate,
                     key={p.id}
                     style={[s.event, {
                       backgroundColor: p.color ?? colors.primary,
-                      top: getEventTop(p),
-                      height: getEventHeight(p),
+                      top: getEventTop(p, START_HOUR, ROW_HEIGHT),
+                      height: getEventHeight(p, START_HOUR, ROW_HEIGHT),
                     }]}
                   >
                     <Text style={s.eventTitle} numberOfLines={2}>{p.title}</Text>
@@ -204,7 +177,7 @@ const s = StyleSheet.create({
     alignItems: 'center', marginBottom: spacing.sm,
   },
   navBtn: { padding: spacing.sm },
-  navArrow: { color: colors.white, fontSize: 28, fontWeight: '300' },
+  navArrow: { color: colors.white, ...font.heading, fontWeight: '300' },
   weekTitle: { color: colors.white, ...font.label, textAlign: 'center', flex: 1 },
 
   headerRow: {
@@ -213,7 +186,7 @@ const s = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   dayHeader: { width: COL_WIDTH, alignItems: 'center', gap: spacing.xs },
-  dayName: { color: colors.textDim, fontSize: 10, fontWeight: '600', textTransform: 'uppercase' },
+  dayName: { color: colors.textDim, ...font.tiny, fontWeight: '600', textTransform: 'uppercase' },
   dayCircle: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   selectedCircle: { backgroundColor: colors.primary },
   todayCircle: { borderWidth: 1, borderColor: colors.primary },
@@ -227,13 +200,13 @@ const s = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   allDayLabelBox: { width: TIME_COL_WIDTH, justifyContent: 'center' },
-  allDayLabelText: { color: colors.textDim, fontSize: 9, textAlign: 'right', paddingRight: spacing.xs },
+  allDayLabelText: { color: colors.textDim, ...font.micro, textAlign: 'right', paddingRight: spacing.xs },
   allDayCell: { width: COL_WIDTH, gap: 2 },
   allDayPill: {
     borderRadius: radii.sm, paddingHorizontal: 2, paddingVertical: 1,
   },
-  allDayPillText: { color: colors.white, fontSize: 9, fontWeight: '600' },
-  moreText: { color: colors.textDim, fontSize: 9 },
+  allDayPillText: { color: colors.white, ...font.micro, fontWeight: '600' },
+  moreText: { color: colors.textDim, ...font.micro },
 
   divider: { height: 1, backgroundColor: colors.border },
 
@@ -246,7 +219,7 @@ const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  timeLabel: { color: colors.textDim, fontSize: 10, textAlign: 'right', paddingRight: spacing.xs },
+  timeLabel: { color: colors.textDim, ...font.tiny, textAlign: 'right', paddingRight: spacing.xs },
 
   dayCol: {
     width: COL_WIDTH,
@@ -270,6 +243,6 @@ const s = StyleSheet.create({
     padding: 3,
     overflow: 'hidden',
   },
-  eventTitle: { color: colors.white, fontSize: 10, fontWeight: '600' },
-  eventTime: { color: 'rgba(255,255,255,0.7)', fontSize: 9 },
+  eventTitle: { color: colors.white, ...font.tiny, fontWeight: '600' },
+  eventTime: { color: 'rgba(255,255,255,0.7)', ...font.micro },
 })

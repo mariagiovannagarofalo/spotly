@@ -5,6 +5,7 @@ import MonthGrid from '../../components/calendar/MonthGrid'
 import WeekView from '../../components/calendar/WeekView'
 import CreatePlanModal from '../../components/feed/CreatePlanModal'
 import i18n from '../../lib/i18n'
+import { addDays } from '../../lib/calendarUtils'
 import { supabase } from '../../lib/supabase'
 import { colors, font, radii, spacing } from '../../lib/theme'
 import { Plan } from '../../types'
@@ -20,11 +21,6 @@ function getMondayOfWeek(date: Date): Date {
   return d
 }
 
-function addDays(date: Date, n: number): Date {
-  const d = new Date(date)
-  d.setDate(d.getDate() + n)
-  return d
-}
 
 export default function CalendarScreen() {
   const today = new Date()

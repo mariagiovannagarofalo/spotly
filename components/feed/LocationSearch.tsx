@@ -3,6 +3,7 @@ import {
   ActivityIndicator, FlatList, StyleSheet,
   Text, TextInput, TouchableOpacity, View,
 } from 'react-native'
+import i18n from '../../lib/i18n'
 import { colors, font, radii, spacing } from '../../lib/theme'
 
 type Result = { name: string; lat: string; lon: string; display_name: string }
@@ -49,7 +50,7 @@ export default function LocationSearch({ value, onSelect }: Props) {
       <View style={s.inputRow}>
         <TextInput
           style={s.input}
-          placeholder="Cerca una città, luogo..."
+          placeholder={i18n.t('plan.location_placeholder')}
           placeholderTextColor={colors.textPlaceholder}
           value={query}
           onChangeText={search}

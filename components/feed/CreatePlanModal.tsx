@@ -221,6 +221,11 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
 
     let lat = latitude
     let lon = longitude
+    // In edit mode, if location text changed re-geocode to get fresh coordinates
+    if (isEditing && location.trim() !== plan?.location) {
+      lat = null
+      lon = null
+    }
     if ((lat === null || lon === null) && location.trim()) {
       const coords = await geocode(location.trim())
       if (coords) { lat = coords.latitude; lon = coords.longitude }

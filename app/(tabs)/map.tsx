@@ -1,5 +1,6 @@
 import * as Location from 'expo-location'
-import { useEffect, useRef, useState } from 'react'
+import { useFocusEffect } from 'expo-router'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import MapView, { Callout, Marker, Region } from 'react-native-maps'
 import FilterBar, { DEFAULT_FILTERS, PlanFilters } from '../../components/shared/FilterBar'
@@ -28,9 +29,12 @@ export default function MapScreen() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) setUserId(user.id)
     })
-    fetchPlans()
     locateUser()
   }, [])
+
+  useFocusEffect(useCallback(() => {
+    fetchPlans()
+  }, []))
 
   async function locateUser() {
     const { status } = await Location.requestForegroundPermissionsAsync()

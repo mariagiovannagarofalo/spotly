@@ -168,7 +168,7 @@ const s = StyleSheet.create({
   },
   selectedCircle: { backgroundColor: colors.primary },
   todayCircle: { borderWidth: 1, borderColor: colors.primary },
-  dayText: { color: colors.textMuted, ...font.label },
+  dayText: { color: colors.white, ...font.label },
   selectedText: { color: colors.white, fontWeight: '700' },
   todayText: { color: colors.primary },
   eventBar: {

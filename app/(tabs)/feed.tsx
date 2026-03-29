@@ -1,29 +1,40 @@
-import { useEffect, useState } from 'react'
+import { useFocusEffect } from 'expo-router'
+import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import FilterBar, { DEFAULT_FILTERS, PlanFilters } from '../../components/shared/FilterBar'
+import SearchBar from '../../components/shared/SearchBar'
 import CreatePlanModal from '../../components/feed/CreatePlanModal'
 import PlanCard from '../../components/feed/PlanCard'
 import i18n from '../../lib/i18n'
+import { filterPlans } from '../../lib/filterPlans'
 import { supabase } from '../../lib/supabase'
 import { colors, font, radii, spacing } from '../../lib/theme'
+import { Plan } from '../../types'
 
 export default function Feed() {
-  const [plans, setPlans] = useState([])
+  const [plans, setPlans] = useState<Plan[]>([])
+  const [filters, setFilters] = useState<PlanFilters>(DEFAULT_FILTERS)
+  const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [modalVisible, setModalVisible] = useState(false)
-  const [userId, setUserId] = useState(null)
+  const [editingPlan, setEditingPlan] = useState<Plan | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) setUserId(user.id)
     })
-    fetchPlans()
   }, [])
+
+  useFocusEffect(useCallback(() => {
+    fetchPlans()
+  }, []))
 
   async function fetchPlans() {
     setLoading(true)
     const { data, error } = await supabase
       .from('plans')
-      .select('*, profiles (id, username, full_name), plan_participants (user_id)')
+      .select('*, profiles (id, username, full_name, avatar_url), plan_participants (user_id)')
       .order('created_at', { ascending: false })
 
     if (!error) setPlans(data || [])
@@ -48,33 +59,43 @@ export default function Feed() {
     <View style={s.container}>
       <View style={s.header}>
         <Text style={s.logo}>{i18n.t('feed.title')}</Text>
-        <TouchableOpacity style={s.newButton} onPress={() => setModalVisible(true)}>
+        <TouchableOpacity style={s.newButton} onPress={() => { setEditingPlan(null); setModalVisible(true) }}>
           <Text style={s.newButtonText}>{i18n.t('feed.new_plan')}</Text>
         </TouchableOpacity>
       </View>
 
+      <SearchBar value={searchQuery} onChange={setSearchQuery} />
+      <FilterBar filters={filters} onChange={setFilters} />
+
       {loading ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xxl }} />
-      ) : plans.length === 0 ? (
+      ) : filterPlans(plans, filters, userId, searchQuery).length === 0 ? (
         <View style={s.empty}>
           <Text style={s.emptyText}>{i18n.t('feed.no_plans')}</Text>
           <Text style={s.emptySubtext}>{i18n.t('feed.create_first')}</Text>
         </View>
       ) : (
         <FlatList
-          data={plans}
+          data={filterPlans(plans, filters, userId, searchQuery)}
           keyExtractor={(item: any) => item.id}
           contentContainerStyle={{ paddingBottom: spacing.md }}
           renderItem={({ item }) => (
-            <PlanCard plan={item} currentUserId={userId} onJoin={() => handleJoin(item.id)} />
+            <PlanCard
+              plan={item}
+              currentUserId={userId}
+              onJoin={() => handleJoin(item.id)}
+              onEdit={item.user_id === userId ? () => { setEditingPlan(item); setModalVisible(true) } : undefined}
+            />
           )}
         />
       )}
 
       <CreatePlanModal
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onCreated={() => { setModalVisible(false); fetchPlans() }}
+        plan={editingPlan ?? undefined}
+        onClose={() => { setModalVisible(false); setEditingPlan(null) }}
+        onCreated={() => { setModalVisible(false); setEditingPlan(null); fetchPlans() }}
+        onDeleted={() => { setModalVisible(false); setEditingPlan(null); fetchPlans() }}
         userId={userId}
       />
     </View>

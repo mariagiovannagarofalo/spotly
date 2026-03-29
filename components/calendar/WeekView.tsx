@@ -1,10 +1,15 @@
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import i18n from '../../lib/i18n'
 import { colors, font, radii, spacing } from '../../lib/theme'
 import { Plan } from '../../types'
-import i18n from '../../lib/i18n'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
-const COL_WIDTH = (SCREEN_WIDTH - spacing.md * 2) / 7
+const TIME_COL_WIDTH = 44
+const COL_WIDTH = (SCREEN_WIDTH - spacing.md * 2 - TIME_COL_WIDTH) / 7
+const ROW_HEIGHT = 56
+const START_HOUR = 6
+const END_HOUR = 24
+const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => i + START_HOUR)
 
 type Props = {
   weekStart: Date
@@ -25,6 +30,28 @@ function addDays(date: Date, n: number) {
   return d
 }
 
+function tzLabel(iana: string): string {
+  try {
+    return new Intl.DateTimeFormat('en', { timeZone: iana, timeZoneName: 'short' })
+      .formatToParts(new Date())
+      .find(p => p.type === 'timeZoneName')?.value ?? iana
+  } catch { return iana }
+}
+
+function getEventTop(plan: Plan): number {
+  if (!plan.start_time) return 0
+  const [h, m] = plan.start_time.split(':').map(Number)
+  return (h - START_HOUR) * ROW_HEIGHT + (m / 60) * ROW_HEIGHT
+}
+
+function getEventHeight(plan: Plan): number {
+  if (!plan.start_time || !plan.end_time) return ROW_HEIGHT
+  const [sh, sm] = plan.start_time.split(':').map(Number)
+  const [eh, em] = plan.end_time.split(':').map(Number)
+  const mins = (eh * 60 + em) - (sh * 60 + sm)
+  return Math.max(ROW_HEIGHT * 0.5, (mins / 60) * ROW_HEIGHT)
+}
+
 export default function WeekView({ weekStart, plans, selectedDate, onSelectDate, onPrev, onNext }: Props) {
   const today = new Date().toISOString().split('T')[0]
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -34,68 +61,137 @@ export default function WeekView({ weekStart, plans, selectedDate, onSelectDate,
   const endISO = toISO(addDays(weekStart, 6))
 
   const weekPlans = plans.filter(p => {
-    const start = p.start_date
     const end = p.end_date ?? p.start_date
-    return end >= startISO && start <= endISO
+    return end >= startISO && p.start_date <= endISO
   })
+
+  function getPlansForDay(iso: string) {
+    return weekPlans.filter(p => {
+      const end = p.end_date ?? p.start_date
+      return iso >= p.start_date && iso <= end
+    })
+  }
+
+  const hasAllDay = weekPlans.some(p => p.all_day !== false || !p.start_time)
 
   return (
     <View style={s.container}>
+      {/* Nav */}
       <View style={s.nav}>
         <TouchableOpacity onPress={onPrev} style={s.navBtn}>
           <Text style={s.navArrow}>‹</Text>
         </TouchableOpacity>
         <Text style={s.weekTitle}>
-          {weekStart.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} –{' '}
-          {addDays(weekStart, 6).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+          {weekStart.toLocaleDateString(i18n.locale, { day: 'numeric', month: 'short' })} –{' '}
+          {addDays(weekStart, 6).toLocaleDateString(i18n.locale, { day: 'numeric', month: 'short', year: 'numeric' })}
         </Text>
         <TouchableOpacity onPress={onNext} style={s.navBtn}>
           <Text style={s.navArrow}>›</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Day columns */}
-      <View style={s.columnsRow}>
+      {/* Day header */}
+      <View style={s.headerRow}>
+        <View style={{ width: TIME_COL_WIDTH }} />
         {days.map((day, i) => {
           const iso = toISO(day)
           const isToday = iso === today
           const isSelected = iso === selectedDate
-          const dayPlans = weekPlans.filter(p => {
-            const end = p.end_date ?? p.start_date
-            return iso >= p.start_date && iso <= end
-          })
-
           return (
-            <TouchableOpacity key={iso} style={s.col} onPress={() => onSelectDate(iso)}>
-              <Text style={[s.colDay, isToday && s.todayText]}>{daysShort[i]}</Text>
-              <View style={[s.colNum, isSelected && s.selectedCircle, isToday && !isSelected && s.todayCircle]}>
-                <Text style={[s.colNumText, isSelected && s.selectedText, isToday && !isSelected && s.todayText]}>
+            <TouchableOpacity key={iso} style={s.dayHeader} onPress={() => onSelectDate(iso)}>
+              <Text style={[s.dayName, isToday && s.accent]}>{daysShort[i]}</Text>
+              <View style={[s.dayCircle, isSelected && s.selectedCircle, isToday && !isSelected && s.todayCircle]}>
+                <Text style={[s.dayNum, isSelected && s.selectedNum, isToday && !isSelected && s.accent]}>
                   {day.getDate()}
                 </Text>
-              </View>
-              <View style={s.colEvents}>
-                {dayPlans.map(p => (
-                  <View key={p.id} style={[s.dot, { backgroundColor: p.color ?? colors.primary }]} />
-                ))}
               </View>
             </TouchableOpacity>
           )
         })}
       </View>
 
-      {/* Plans for selected day */}
-      <ScrollView style={s.plansList} showsVerticalScrollIndicator={false}>
-        {weekPlans
-          .filter(p => {
-            const end = p.end_date ?? p.start_date
-            return selectedDate >= p.start_date && selectedDate <= end
-          })
-          .map(p => (
-            <View key={p.id} style={[s.planItem, { borderLeftColor: p.color ?? colors.primary }]}>
-              <Text style={s.planTitle}>{p.title}</Text>
-              <Text style={s.planLocation}>📍 {p.location}</Text>
-            </View>
-          ))}
+      {/* All-day row */}
+      {hasAllDay && (
+        <View style={s.allDayRow}>
+          <View style={s.allDayLabelBox}>
+            <Text style={s.allDayLabelText}>tutto{'\n'}giorno</Text>
+          </View>
+          {days.map((day) => {
+            const iso = toISO(day)
+            const allDayPlans = getPlansForDay(iso).filter(p => p.all_day !== false || !p.start_time)
+            return (
+              <View key={iso} style={s.allDayCell}>
+                {allDayPlans.slice(0, 2).map(p => (
+                  <View key={p.id} style={[s.allDayPill, { backgroundColor: p.color ?? colors.primary }]}>
+                    <Text style={s.allDayPillText} numberOfLines={1}>{p.title}</Text>
+                  </View>
+                ))}
+                {allDayPlans.length > 2 && (
+                  <Text style={s.moreText}>+{allDayPlans.length - 2}</Text>
+                )}
+              </View>
+            )
+          })}
+        </View>
+      )}
+
+      <View style={s.divider} />
+
+      {/* Scrollable time grid */}
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={s.grid}>
+          {/* Time labels column */}
+          <View style={{ width: TIME_COL_WIDTH }}>
+            {HOURS.map(h => (
+              <View key={h} style={s.timeRow}>
+                <Text style={s.timeLabel}>{String(h).padStart(2, '0')}:00</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Day columns */}
+          {days.map((day, di) => {
+            const iso = toISO(day)
+            const isSelected = iso === selectedDate
+            const timedPlans = getPlansForDay(iso).filter(p => p.all_day === false && !!p.start_time)
+            return (
+              <TouchableOpacity
+                key={iso}
+                activeOpacity={0.7}
+                onPress={() => onSelectDate(iso)}
+                style={[
+                  s.dayCol,
+                  isSelected && s.dayColSelected,
+                  di > 0 && s.dayColBorder,
+                  { height: HOURS.length * ROW_HEIGHT },
+                ]}
+              >
+                {/* Hour lines */}
+                {HOURS.map((_, hi) => (
+                  <View key={hi} style={[s.hourLine, { top: hi * ROW_HEIGHT }]} />
+                ))}
+                {/* Events */}
+                {timedPlans.map(p => (
+                  <View
+                    key={p.id}
+                    style={[s.event, {
+                      backgroundColor: p.color ?? colors.primary,
+                      top: getEventTop(p),
+                      height: getEventHeight(p),
+                    }]}
+                  >
+                    <Text style={s.eventTitle} numberOfLines={2}>{p.title}</Text>
+                    {p.start_time ? (
+                      <Text style={s.eventTime}>
+                        {p.start_time}{p.timezone ? ` · ${tzLabel(p.timezone)}` : ''}
+                      </Text>
+                    ) : null}
+                  </View>
+                ))}
+              </TouchableOpacity>
+            )
+          })}
+        </View>
       </ScrollView>
     </View>
   )
@@ -110,23 +206,70 @@ const s = StyleSheet.create({
   navBtn: { padding: spacing.sm },
   navArrow: { color: colors.white, fontSize: 28, fontWeight: '300' },
   weekTitle: { color: colors.white, ...font.label, textAlign: 'center', flex: 1 },
-  columnsRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: spacing.sm },
-  col: { width: COL_WIDTH, alignItems: 'center', gap: spacing.xs },
-  colDay: { color: colors.textDim, ...font.small },
-  colNum: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+
+  headerRow: {
+    flexDirection: 'row', alignItems: 'center',
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingBottom: spacing.xs,
+  },
+  dayHeader: { width: COL_WIDTH, alignItems: 'center', gap: spacing.xs },
+  dayName: { color: colors.textDim, fontSize: 10, fontWeight: '600', textTransform: 'uppercase' },
+  dayCircle: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   selectedCircle: { backgroundColor: colors.primary },
   todayCircle: { borderWidth: 1, borderColor: colors.primary },
-  colNumText: { color: colors.textMuted, ...font.label },
-  selectedText: { color: colors.white, fontWeight: '700' },
-  todayText: { color: colors.primary },
-  colEvents: { flexDirection: 'row', flexWrap: 'wrap', gap: 2, justifyContent: 'center' },
-  dot: { width: 5, height: 5, borderRadius: 3 },
-  plansList: { marginTop: spacing.md },
-  planItem: {
-    backgroundColor: colors.card, borderRadius: radii.md,
-    padding: spacing.sm + 4, marginBottom: spacing.sm,
-    borderLeftWidth: 4,
+  dayNum: { color: colors.white, ...font.label },
+  selectedNum: { color: colors.white, fontWeight: '700' },
+  accent: { color: colors.primary },
+
+  allDayRow: {
+    flexDirection: 'row', minHeight: 28,
+    paddingVertical: spacing.xs,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  planTitle: { color: colors.white, ...font.label },
-  planLocation: { color: colors.textDim, ...font.small, marginTop: 2 },
+  allDayLabelBox: { width: TIME_COL_WIDTH, justifyContent: 'center' },
+  allDayLabelText: { color: colors.textDim, fontSize: 9, textAlign: 'right', paddingRight: spacing.xs },
+  allDayCell: { width: COL_WIDTH, gap: 2 },
+  allDayPill: {
+    borderRadius: radii.sm, paddingHorizontal: 2, paddingVertical: 1,
+  },
+  allDayPillText: { color: colors.white, fontSize: 9, fontWeight: '600' },
+  moreText: { color: colors.textDim, fontSize: 9 },
+
+  divider: { height: 1, backgroundColor: colors.border },
+
+  grid: { flexDirection: 'row' },
+
+  timeRow: {
+    height: ROW_HEIGHT,
+    justifyContent: 'flex-start',
+    paddingTop: 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  timeLabel: { color: colors.textDim, fontSize: 10, textAlign: 'right', paddingRight: spacing.xs },
+
+  dayCol: {
+    width: COL_WIDTH,
+    position: 'relative',
+    backgroundColor: 'transparent',
+  },
+  dayColSelected: { backgroundColor: 'rgba(108,99,255,0.05)' },
+  dayColBorder: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border },
+
+  hourLine: {
+    position: 'absolute',
+    left: 0, right: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+  },
+
+  event: {
+    position: 'absolute',
+    left: 2, right: 2,
+    borderRadius: radii.sm,
+    padding: 3,
+    overflow: 'hidden',
+  },
+  eventTitle: { color: colors.white, fontSize: 10, fontWeight: '600' },
+  eventTime: { color: 'rgba(255,255,255,0.7)', fontSize: 9 },
 })

@@ -51,7 +51,7 @@ export default function CalendarScreen() {
     setLoading(true)
     const { data } = await supabase
       .from('plans')
-      .select('*, profiles (id, username, full_name), plan_participants (user_id)')
+      .select('*, profiles (id, username, full_name, avatar_url), plan_participants (user_id)')
       .order('start_date', { ascending: true })
     setPlans((data as Plan[]) || [])
     setLoading(false)
@@ -67,16 +67,13 @@ export default function CalendarScreen() {
   }
   function prevWeek() { setWeekStart(w => addDays(w, -7)) }
   function nextWeek() { setWeekStart(w => addDays(w, 7)) }
-  function prevDay() {
-    const d = new Date(selectedDate)
-    d.setDate(d.getDate() - 1)
-    setSelectedDate(d.toISOString().split('T')[0])
+  function shiftDay(iso: string, delta: number): string {
+    const [y, m, d] = iso.split('-').map(Number)
+    const date = new Date(y, m - 1, d + delta)
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
   }
-  function nextDay() {
-    const d = new Date(selectedDate)
-    d.setDate(d.getDate() + 1)
-    setSelectedDate(d.toISOString().split('T')[0])
-  }
+  function prevDay() { setSelectedDate(d => shiftDay(d, -1)) }
+  function nextDay() { setSelectedDate(d => shiftDay(d, 1)) }
 
   const VIEW_OPTIONS: { key: ViewMode; label: string }[] = [
     { key: 'month', label: i18n.t('calendar.month') },

@@ -1,7 +1,11 @@
+import * as Location from 'expo-location'
 import { useEffect, useRef, useState } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import MapView, { Callout, Marker, Region } from 'react-native-maps'
+import FilterBar, { DEFAULT_FILTERS, PlanFilters } from '../../components/shared/FilterBar'
+import SearchBar from '../../components/shared/SearchBar'
 import CreatePlanModal from '../../components/feed/CreatePlanModal'
+import { filterPlans } from '../../lib/filterPlans'
 import i18n from '../../lib/i18n'
 import { supabase } from '../../lib/supabase'
 import { colors, font, radii, spacing } from '../../lib/theme'
@@ -14,6 +18,8 @@ const INITIAL_REGION: Region = {
 
 export default function MapScreen() {
   const [plans, setPlans] = useState<Plan[]>([])
+  const [filters, setFilters] = useState<PlanFilters>(DEFAULT_FILTERS)
+  const [searchQuery, setSearchQuery] = useState('')
   const [modalVisible, setModalVisible] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const mapRef = useRef<MapView>(null)
@@ -23,26 +29,39 @@ export default function MapScreen() {
       if (user) setUserId(user.id)
     })
     fetchPlans()
+    locateUser()
   }, [])
+
+  async function locateUser() {
+    const { status } = await Location.requestForegroundPermissionsAsync()
+    if (status !== 'granted') return
+    const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+    mapRef.current?.animateToRegion({
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
+      latitudeDelta: 0.15,
+      longitudeDelta: 0.15,
+    }, 800)
+  }
 
   async function fetchPlans() {
     const { data } = await supabase
       .from('plans')
-      .select('*, profiles (id, username, full_name), plan_participants (user_id)')
+      .select('*, profiles (id, username, full_name, avatar_url), plan_participants (user_id)')
       .not('latitude', 'is', null)
       .not('longitude', 'is', null)
     setPlans((data as Plan[]) || [])
   }
 
   function formatDate(date: string) {
-    return new Date(date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+    return new Date(date).toLocaleDateString(i18n.locale, { day: 'numeric', month: 'short' })
   }
 
   return (
     <View style={s.container}>
       <MapView ref={mapRef} style={s.map} initialRegion={INITIAL_REGION}
-        mapType="mutedStandard" showsUserLocation={false}>
-        {plans.map(plan => (
+        mapType="mutedStandard" showsUserLocation>
+        {filterPlans(plans, filters, userId, searchQuery).map(plan => (
           <Marker
             key={plan.id}
             coordinate={{ latitude: (plan as any).latitude, longitude: (plan as any).longitude }}
@@ -68,10 +87,18 @@ export default function MapScreen() {
           <TouchableOpacity style={s.newButton} onPress={() => setModalVisible(true)}>
             <Text style={s.newButtonText}>{i18n.t('feed.new_plan')}</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={s.locateBtn} onPress={locateUser}>
+            <Text style={s.locateText}>◎</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={s.refreshBtn} onPress={fetchPlans}>
             <Text style={s.refreshText}>↻</Text>
           </TouchableOpacity>
         </View>
+      </View>
+
+      <View style={s.searchOverlay}>
+        <SearchBar value={searchQuery} onChange={setSearchQuery} dark />
+        <FilterBar filters={filters} onChange={setFilters} dark />
       </View>
 
       {plans.length === 0 && (
@@ -110,6 +137,11 @@ const s = StyleSheet.create({
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
   },
   newButtonText: { color: colors.white, ...font.buttonSm },
+  locateBtn: {
+    backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: radii.pill,
+    width: 40, height: 40, justifyContent: 'center', alignItems: 'center',
+  },
+  locateText: { color: colors.white, fontSize: 22 },
   refreshBtn: {
     backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: radii.pill,
     width: 40, height: 40, justifyContent: 'center', alignItems: 'center',
@@ -133,4 +165,7 @@ const s = StyleSheet.create({
   },
   emptyText: { color: colors.white, ...font.label },
   emptySubtext: { color: colors.textDim, ...font.small, marginTop: spacing.xs },
+  searchOverlay: {
+    position: 'absolute', top: 120, left: 0, right: 0, zIndex: 10,
+  },
 })

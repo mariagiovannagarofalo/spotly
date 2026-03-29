@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import CreatePlanModal from '../../components/feed/CreatePlanModal'
 import PlanCard from '../../components/feed/PlanCard'
+import i18n from '../../lib/i18n'
 import { supabase } from '../../lib/supabase'
 import { colors, font, radii, spacing } from '../../lib/theme'
 
@@ -46,9 +47,9 @@ export default function Feed() {
   return (
     <View style={s.container}>
       <View style={s.header}>
-        <Text style={s.logo}>spotly</Text>
+        <Text style={s.logo}>{i18n.t('feed.title')}</Text>
         <TouchableOpacity style={s.newButton} onPress={() => setModalVisible(true)}>
-          <Text style={s.newButtonText}>+ Piano</Text>
+          <Text style={s.newButtonText}>{i18n.t('feed.new_plan')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -56,8 +57,8 @@ export default function Feed() {
         <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xxl }} />
       ) : plans.length === 0 ? (
         <View style={s.empty}>
-          <Text style={s.emptyText}>Nessun piano ancora.</Text>
-          <Text style={s.emptySubtext}>Crea il primo!</Text>
+          <Text style={s.emptyText}>{i18n.t('feed.no_plans')}</Text>
+          <Text style={s.emptySubtext}>{i18n.t('feed.create_first')}</Text>
         </View>
       ) : (
         <FlatList

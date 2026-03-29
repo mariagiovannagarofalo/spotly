@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import i18n from '../lib/i18n'
 import { supabase } from '../lib/supabase'
 import { colors, font, radii, spacing } from '../lib/theme'
 
@@ -13,49 +14,55 @@ export default function Auth() {
     setLoading(true)
     if (isLogin) {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) Alert.alert('Errore', error.message)
+      if (error) Alert.alert(i18n.t('auth.error'), error.message)
     } else {
       const { error } = await supabase.auth.signUp({ email, password })
-      if (error) Alert.alert('Errore', error.message)
-      else Alert.alert('Controlla la tua email per confermare!')
+      if (error) Alert.alert(i18n.t('auth.error'), error.message)
+      else Alert.alert(i18n.t('auth.check_email'))
     }
     setLoading(false)
   }
 
   async function handleForgotPassword() {
     if (!email.trim()) {
-      Alert.alert('Inserisci la tua email', 'Scrivi la tua email nel campo sopra, poi riprova.')
+      Alert.alert(i18n.t('auth.insert_email'), i18n.t('auth.insert_email_body'))
       return
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim())
-    if (error) Alert.alert('Errore', error.message)
-    else Alert.alert('Email inviata!', 'Controlla la tua casella per reimpostare la password.')
+    if (error) Alert.alert(i18n.t('auth.error'), error.message)
+    else Alert.alert(i18n.t('auth.reset_sent'), i18n.t('auth.reset_sent_body'))
   }
 
   return (
     <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={s.inner}>
         <Text style={s.logo}>spotly</Text>
-        <Text style={s.subtitle}>{isLogin ? 'Bentornata 👋' : 'Crea il tuo account'}</Text>
+        <Text style={s.subtitle}>
+          {isLogin ? i18n.t('auth.welcome_back') : i18n.t('auth.create_account')}
+        </Text>
 
-        <TextInput style={s.input} placeholder="Email" placeholderTextColor={colors.textPlaceholder}
+        <TextInput style={s.input} placeholder={i18n.t('auth.email')}
+          placeholderTextColor={colors.textPlaceholder}
           value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" />
-        <TextInput style={s.input} placeholder="Password" placeholderTextColor={colors.textPlaceholder}
+        <TextInput style={s.input} placeholder={i18n.t('auth.password')}
+          placeholderTextColor={colors.textPlaceholder}
           value={password} onChangeText={setPassword} secureTextEntry />
 
         <TouchableOpacity style={s.button} onPress={handleAuth} disabled={loading}>
-          <Text style={s.buttonText}>{loading ? 'Caricamento...' : isLogin ? 'Accedi' : 'Registrati'}</Text>
+          <Text style={s.buttonText}>
+            {loading ? i18n.t('auth.loading') : isLogin ? i18n.t('auth.login') : i18n.t('auth.register')}
+          </Text>
         </TouchableOpacity>
 
         {isLogin && (
           <TouchableOpacity onPress={handleForgotPassword} style={{ marginBottom: spacing.md }}>
-            <Text style={s.forgotText}>Password dimenticata?</Text>
+            <Text style={s.forgotText}>{i18n.t('auth.forgot_password')}</Text>
           </TouchableOpacity>
         )}
 
         <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
           <Text style={s.switchText}>
-            {isLogin ? 'Non hai un account? Registrati' : 'Hai già un account? Accedi'}
+            {isLogin ? i18n.t('auth.no_account') : i18n.t('auth.have_account')}
           </Text>
         </TouchableOpacity>
       </View>

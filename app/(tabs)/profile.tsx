@@ -64,7 +64,7 @@ export default function ProfileScreen() {
     const path = `${userId}/avatar.${ext}`
 
     const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: 'base64',
     })
 
     const { error: uploadError } = await supabase.storage

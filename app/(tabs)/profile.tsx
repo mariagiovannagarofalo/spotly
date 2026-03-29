@@ -1,5 +1,6 @@
+import * as ImagePicker from 'expo-image-picker'
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import EditProfileModal from '../../components/profile/EditProfileModal'
 import PlanCard from '../../components/feed/PlanCard'
 import { supabase } from '../../lib/supabase'
@@ -10,6 +11,7 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [plans, setPlans] = useState<Plan[]>([])
   const [loading, setLoading] = useState(true)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [editVisible, setEditVisible] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
 
@@ -36,6 +38,49 @@ export default function ProfileScreen() {
       .eq('user_id', uid)
       .order('created_at', { ascending: false })
     setPlans((data as Plan[]) || [])
+  }
+
+  async function handlePickAvatar() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (status !== 'granted') {
+      Alert.alert('Permesso necessario', 'Consenti l\'accesso alla galleria nelle impostazioni.')
+      return
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    })
+
+    if (result.canceled || !result.assets[0]) return
+
+    setUploadingAvatar(true)
+    const asset = result.assets[0]
+    const ext = asset.uri.split('.').pop() ?? 'jpg'
+    const path = `${userId}/avatar.${ext}`
+
+    const response = await fetch(asset.uri)
+    const blob = await response.blob()
+    const arrayBuffer = await blob.arrayBuffer()
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(path, arrayBuffer, { contentType: `image/${ext}`, upsert: true })
+
+    if (uploadError) {
+      Alert.alert('Errore upload', uploadError.message)
+      setUploadingAvatar(false)
+      return
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
+    const avatarUrl = `${publicUrl}?t=${Date.now()}`
+
+    await supabase.from('profiles').update({ avatar_url: avatarUrl }).eq('id', userId)
+    setUploadingAvatar(false)
+    fetchProfile(userId!)
   }
 
   async function handleJoin(planId: string) {
@@ -82,9 +127,23 @@ export default function ProfileScreen() {
             </View>
 
             <View style={s.profileSection}>
-              <View style={s.avatar}>
-                <Text style={s.avatarText}>{initial}</Text>
-              </View>
+              <TouchableOpacity onPress={handlePickAvatar} style={s.avatarWrapper}>
+                {uploadingAvatar ? (
+                  <View style={s.avatar}>
+                    <ActivityIndicator color={colors.white} />
+                  </View>
+                ) : profile?.avatar_url ? (
+                  <Image source={{ uri: profile.avatar_url }} style={s.avatarImage} />
+                ) : (
+                  <View style={s.avatar}>
+                    <Text style={s.avatarText}>{initial}</Text>
+                  </View>
+                )}
+                <View style={s.cameraBadge}>
+                  <Text style={s.cameraIcon}>📷</Text>
+                </View>
+              </TouchableOpacity>
+
               <View style={s.info}>
                 <Text style={s.username}>@{profile?.username}</Text>
                 {profile?.full_name ? <Text style={s.fullName}>{profile.full_name}</Text> : null}
@@ -145,12 +204,23 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: spacing.md, gap: spacing.md, marginBottom: spacing.md,
   },
+  avatarWrapper: { position: 'relative' },
   avatar: {
     width: 72, height: 72, borderRadius: 36,
     backgroundColor: colors.primary,
     justifyContent: 'center', alignItems: 'center',
   },
+  avatarImage: {
+    width: 72, height: 72, borderRadius: 36,
+  },
   avatarText: { color: colors.white, fontSize: 28, fontWeight: '700' },
+  cameraBadge: {
+    position: 'absolute', bottom: 0, right: -4,
+    backgroundColor: colors.card, borderRadius: 12,
+    width: 24, height: 24, justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: colors.border,
+  },
+  cameraIcon: { fontSize: 12 },
   info: { flex: 1 },
   username: { color: colors.white, ...font.heading },
   fullName: { color: colors.textMuted, ...font.body, marginTop: 2 },

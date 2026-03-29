@@ -14,6 +14,7 @@ export type Plan = {
   description?: string
   location: string
   activity?: string
+  color?: string
   start_date: string
   end_date?: string
   visibility: 'public' | 'friends' | 'private'

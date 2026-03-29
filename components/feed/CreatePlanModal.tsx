@@ -3,6 +3,7 @@ import {
   Alert, KeyboardAvoidingView, Modal, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native'
+import i18n from '../../lib/i18n'
 import { supabase } from '../../lib/supabase'
 import { colors, font, radii, spacing } from '../../lib/theme'
 import { Profile } from '../../types'
@@ -19,14 +20,19 @@ type Props = {
 type DateFields = { day: string; month: string; year: string }
 
 const ACTIVITIES = [
-  { value: 'viaggio', label: 'Viaggio', icon: '✈️' },
-  { value: 'concerto', label: 'Concerto', icon: '🎵' },
-  { value: 'sport', label: 'Sport', icon: '🏃' },
-  { value: 'cena', label: 'Cena', icon: '🍽️' },
-  { value: 'festa', label: 'Festa', icon: '🎉' },
-  { value: 'natura', label: 'Natura', icon: '🌿' },
-  { value: 'arte', label: 'Arte', icon: '🎨' },
-  { value: 'altro', label: 'Altro', icon: '📌' },
+  { value: 'viaggio', labelKey: 'plan.activity_travel', icon: '✈️' },
+  { value: 'concerto', labelKey: 'plan.activity_concert', icon: '🎵' },
+  { value: 'sport', labelKey: 'plan.activity_sport', icon: '🏃' },
+  { value: 'cena', labelKey: 'plan.activity_dinner', icon: '🍽️' },
+  { value: 'festa', labelKey: 'plan.activity_party', icon: '🎉' },
+  { value: 'natura', labelKey: 'plan.activity_nature', icon: '🌿' },
+  { value: 'arte', labelKey: 'plan.activity_art', icon: '🎨' },
+  { value: 'altro', labelKey: 'plan.activity_other', icon: '📌' },
+]
+
+const PLAN_COLORS = [
+  '#6C63FF', '#FF6584', '#43C6AC', '#F7971E',
+  '#4facfe', '#43e97b', '#fa709a', '#fee140',
 ]
 
 const VISIBILITY_OPTIONS = [
@@ -70,6 +76,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, userId }:
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
   const [activity, setActivity] = useState('')
+  const [color, setColor] = useState(PLAN_COLORS[0])
   const [startDate, setStartDate] = useState<DateFields>(emptyDate())
   const [endDate, setEndDate] = useState<DateFields>(emptyDate())
   const [visibility, setVisibility] = useState('friends')
@@ -79,7 +86,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, userId }:
   function reset() {
     setTitle(''); setDescription(''); setLocation('')
     setLatitude(null); setLongitude(null); setActivity('')
-    setStartDate(emptyDate()); setEndDate(emptyDate())
+    setColor(PLAN_COLORS[0]); setStartDate(emptyDate()); setEndDate(emptyDate())
     setVisibility('friends'); setTaggedFriends([])
   }
 
@@ -103,6 +110,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, userId }:
         description: description.trim() || null,
         location: location.trim(),
         activity: activity || null,
+        color,
         start_date: start,
         end_date: toISO(endDate),
         visibility,
@@ -136,18 +144,18 @@ export default function CreatePlanModal({ visible, onClose, onCreated, userId }:
         <View style={s.handle} />
 
         <View style={s.headerRow}>
-          <Text style={s.headerTitle}>Nuovo Piano</Text>
+          <Text style={s.headerTitle}>{i18n.t('plan.new_title')}</Text>
           <TouchableOpacity onPress={() => { reset(); onClose() }}>
-            <Text style={s.cancelBtn}>Annulla</Text>
+            <Text style={s.cancelBtn}>{i18n.t('plan.cancel')}</Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView style={s.form} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <Text style={s.label}>Titolo *</Text>
-          <TextInput style={s.input} placeholder="Es. Weekend a Berlino"
+          <Text style={s.label}>{i18n.t('plan.title_label')}</Text>
+          <TextInput style={s.input} placeholder={i18n.t('plan.title_placeholder')}
             placeholderTextColor={colors.textPlaceholder} value={title} onChangeText={setTitle} />
 
-          <Text style={s.label}>Location *</Text>
+          <Text style={s.label}>{i18n.t('plan.location_label')}</Text>
           <LocationSearch
             value={location}
             onSelect={(name, lat, lon) => {
@@ -157,26 +165,37 @@ export default function CreatePlanModal({ visible, onClose, onCreated, userId }:
             }}
           />
 
-          <Text style={s.label}>Attività</Text>
+          <Text style={s.label}>{i18n.t('plan.color_label')}</Text>
+          <View style={s.colorRow}>
+            {PLAN_COLORS.map(c => (
+              <TouchableOpacity
+                key={c}
+                style={[s.colorCircle, { backgroundColor: c }, color === c && s.colorCircleActive]}
+                onPress={() => setColor(c)}
+              />
+            ))}
+          </View>
+
+          <Text style={s.label}>{i18n.t('plan.activity_label')}</Text>
           <View style={s.activitiesGrid}>
             {ACTIVITIES.map(act => (
               <TouchableOpacity
                 key={act.value}
-                style={[s.actOption, activity === act.value && s.actOptionActive]}
+                style={[s.actOption, activity === act.value && s.actOptionActive, activity === act.value && { borderColor: color }]}
                 onPress={() => setActivity(activity === act.value ? '' : act.value)}
               >
                 <Text style={s.actIcon}>{act.icon}</Text>
-                <Text style={[s.actLabel, activity === act.value && s.actLabelActive]}>
-                  {act.label}
+                <Text style={[s.actLabel, activity === act.value && { color }]}>
+                  {i18n.t(act.labelKey)}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          <DateInput label="Data inizio *" value={startDate} onChange={setStartDate} />
-          <DateInput label="Data fine (opzionale)" value={endDate} onChange={setEndDate} />
+          <DateInput label={i18n.t('plan.start_date')} value={startDate} onChange={setStartDate} />
+          <DateInput label={i18n.t('plan.end_date')} value={endDate} onChange={setEndDate} />
 
-          <Text style={s.label}>Con chi? (opzionale)</Text>
+          <Text style={s.label}>{i18n.t('plan.friends_label')}</Text>
           <FriendSearch
             currentUserId={userId}
             selected={taggedFriends}
@@ -184,12 +203,12 @@ export default function CreatePlanModal({ visible, onClose, onCreated, userId }:
             onRemove={id => setTaggedFriends(prev => prev.filter(p => p.id !== id))}
           />
 
-          <Text style={s.label}>Descrizione (opzionale)</Text>
-          <TextInput style={[s.input, s.textArea]} placeholder="Dettagli, orari, note..."
+          <Text style={s.label}>{i18n.t('plan.description_label')}</Text>
+          <TextInput style={[s.input, s.textArea]} placeholder={i18n.t('plan.description_placeholder')}
             placeholderTextColor={colors.textPlaceholder} value={description}
             onChangeText={setDescription} multiline numberOfLines={3} />
 
-          <Text style={s.label}>Visibilità</Text>
+          <Text style={s.label}>{i18n.t('plan.visibility_label')}</Text>
           <View style={s.visibilityRow}>
             {VISIBILITY_OPTIONS.map(opt => (
               <TouchableOpacity
@@ -205,8 +224,8 @@ export default function CreatePlanModal({ visible, onClose, onCreated, userId }:
             ))}
           </View>
 
-          <TouchableOpacity style={s.createButton} onPress={handleCreate} disabled={loading}>
-            <Text style={s.createButtonText}>{loading ? 'Creazione...' : 'Crea Piano'}</Text>
+          <TouchableOpacity style={[s.createButton, { backgroundColor: color }]} onPress={handleCreate} disabled={loading}>
+            <Text style={s.createButtonText}>{loading ? i18n.t('plan.creating') : i18n.t('plan.create')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -248,6 +267,14 @@ const s = StyleSheet.create({
   actIcon: { fontSize: 22, marginBottom: spacing.xs },
   actLabel: { color: colors.textDim, fontSize: 10, textAlign: 'center' },
   actLabelActive: { color: colors.primary },
+  colorRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
+  colorCircle: {
+    width: 32, height: 32, borderRadius: 16,
+  },
+  colorCircleActive: {
+    borderWidth: 3, borderColor: colors.white,
+    transform: [{ scale: 1.15 }],
+  },
   visibilityRow: { flexDirection: 'row', gap: spacing.sm + 2, marginTop: spacing.xs },
   visOption: {
     flex: 1, backgroundColor: colors.input, borderRadius: radii.md,

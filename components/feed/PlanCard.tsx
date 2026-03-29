@@ -35,7 +35,10 @@ export default function PlanCard({ plan, currentUserId, onJoin }: Props) {
         </View>
       </View>
 
-      <Text style={s.title}>{plan.title}</Text>
+      <View style={s.titleRow}>
+        <Text style={s.title}>{plan.title}</Text>
+        {plan.activity ? <Text style={s.activityBadge}>{plan.activity}</Text> : null}
+      </View>
       {plan.description ? <Text style={s.description}>{plan.description}</Text> : null}
 
       <View style={s.locationRow}>
@@ -88,7 +91,14 @@ const s = StyleSheet.create({
   avatarText: { color: colors.white, ...font.label },
   username: { color: colors.textMuted, ...font.label },
   date: { color: colors.textDim, ...font.small, marginTop: 2 },
-  title: { color: colors.white, ...font.heading, marginBottom: spacing.xs },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
+  title: { color: colors.white, ...font.heading, flex: 1 },
+  activityBadge: {
+    color: colors.textDim, ...font.small,
+    backgroundColor: colors.input, borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm, paddingVertical: 2,
+    borderWidth: 1, borderColor: colors.border,
+  },
   description: { color: colors.textMuted, ...font.body, marginBottom: spacing.sm },
   locationRow: {
     flexDirection: 'row', alignItems: 'center',

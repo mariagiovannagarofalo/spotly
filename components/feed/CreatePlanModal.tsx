@@ -3,9 +3,11 @@ import {
   Alert, KeyboardAvoidingView, Modal, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native'
-import { geocode } from '../../lib/geocode'
 import { supabase } from '../../lib/supabase'
 import { colors, font, radii, spacing } from '../../lib/theme'
+import { Profile } from '../../types'
+import FriendSearch from './FriendSearch'
+import LocationSearch from './LocationSearch'
 
 type Props = {
   visible: boolean
@@ -16,6 +18,17 @@ type Props = {
 
 type DateFields = { day: string; month: string; year: string }
 
+const ACTIVITIES = [
+  { value: 'viaggio', label: 'Viaggio', icon: '✈️' },
+  { value: 'concerto', label: 'Concerto', icon: '🎵' },
+  { value: 'sport', label: 'Sport', icon: '🏃' },
+  { value: 'cena', label: 'Cena', icon: '🍽️' },
+  { value: 'festa', label: 'Festa', icon: '🎉' },
+  { value: 'natura', label: 'Natura', icon: '🌿' },
+  { value: 'arte', label: 'Arte', icon: '🎨' },
+  { value: 'altro', label: 'Altro', icon: '📌' },
+]
+
 const VISIBILITY_OPTIONS = [
   { value: 'public', label: 'Tutti', icon: '🌍' },
   { value: 'friends', label: 'Amici', icon: '👥' },
@@ -24,47 +37,25 @@ const VISIBILITY_OPTIONS = [
 
 function toISO({ day, month, year }: DateFields): string | null {
   if (!day || !month || !year) return null
-  const d = day.padStart(2, '0')
-  const m = month.padStart(2, '0')
-  return `${year}-${m}-${d}`
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
 }
 
 function DateInput({ label, value, onChange }: {
-  label: string
-  value: DateFields
-  onChange: (v: DateFields) => void
+  label: string; value: DateFields; onChange: (v: DateFields) => void
 }) {
   return (
     <View>
       <Text style={s.label}>{label}</Text>
       <View style={s.dateRow}>
-        <TextInput
-          style={[s.input, s.dateDay]}
-          placeholder="GG"
-          placeholderTextColor={colors.textPlaceholder}
-          keyboardType="number-pad"
-          maxLength={2}
-          value={value.day}
-          onChangeText={day => onChange({ ...value, day })}
-        />
-        <TextInput
-          style={[s.input, s.dateMonth]}
-          placeholder="MM"
-          placeholderTextColor={colors.textPlaceholder}
-          keyboardType="number-pad"
-          maxLength={2}
-          value={value.month}
-          onChangeText={month => onChange({ ...value, month })}
-        />
-        <TextInput
-          style={[s.input, s.dateYear]}
-          placeholder="AAAA"
-          placeholderTextColor={colors.textPlaceholder}
-          keyboardType="number-pad"
-          maxLength={4}
-          value={value.year}
-          onChangeText={year => onChange({ ...value, year })}
-        />
+        <TextInput style={[s.input, s.dateDay]} placeholder="GG"
+          placeholderTextColor={colors.textPlaceholder} keyboardType="number-pad"
+          maxLength={2} value={value.day} onChangeText={day => onChange({ ...value, day })} />
+        <TextInput style={[s.input, s.dateMonth]} placeholder="MM"
+          placeholderTextColor={colors.textPlaceholder} keyboardType="number-pad"
+          maxLength={2} value={value.month} onChangeText={month => onChange({ ...value, month })} />
+        <TextInput style={[s.input, s.dateYear]} placeholder="AAAA"
+          placeholderTextColor={colors.textPlaceholder} keyboardType="number-pad"
+          maxLength={4} value={value.year} onChangeText={year => onChange({ ...value, year })} />
       </View>
     </View>
   )
@@ -76,14 +67,20 @@ export default function CreatePlanModal({ visible, onClose, onCreated, userId }:
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [location, setLocation] = useState('')
+  const [latitude, setLatitude] = useState<number | null>(null)
+  const [longitude, setLongitude] = useState<number | null>(null)
+  const [activity, setActivity] = useState('')
   const [startDate, setStartDate] = useState<DateFields>(emptyDate())
   const [endDate, setEndDate] = useState<DateFields>(emptyDate())
   const [visibility, setVisibility] = useState('friends')
+  const [taggedFriends, setTaggedFriends] = useState<Profile[]>([])
   const [loading, setLoading] = useState(false)
 
   function reset() {
     setTitle(''); setDescription(''); setLocation('')
-    setStartDate(emptyDate()); setEndDate(emptyDate()); setVisibility('friends')
+    setLatitude(null); setLongitude(null); setActivity('')
+    setStartDate(emptyDate()); setEndDate(emptyDate())
+    setVisibility('friends'); setTaggedFriends([])
   }
 
   async function handleCreate() {
@@ -96,29 +93,41 @@ export default function CreatePlanModal({ visible, onClose, onCreated, userId }:
       Alert.alert('Data obbligatoria', 'Inserisci giorno, mese e anno di inizio.')
       return
     }
-    const end = toISO(endDate)
 
     setLoading(true)
-    const coords = await geocode(location.trim())
-    const { error } = await supabase.from('plans').insert({
-      user_id: userId,
-      title: title.trim(),
-      description: description.trim() || null,
-      location: location.trim(),
-      start_date: start,
-      end_date: end,
-      visibility,
-      latitude: coords?.latitude ?? null,
-      longitude: coords?.longitude ?? null,
-    })
-    setLoading(false)
+    const { data: plan, error } = await supabase
+      .from('plans')
+      .insert({
+        user_id: userId,
+        title: title.trim(),
+        description: description.trim() || null,
+        location: location.trim(),
+        activity: activity || null,
+        start_date: start,
+        end_date: toISO(endDate),
+        visibility,
+        latitude,
+        longitude,
+      })
+      .select()
+      .single()
 
     if (error) {
       Alert.alert('Errore', error.message)
-    } else {
-      reset()
-      onCreated()
+      setLoading(false)
+      return
     }
+
+    // Aggiungi amici taggati come partecipanti
+    if (taggedFriends.length > 0 && plan) {
+      await supabase.from('plan_participants').insert(
+        taggedFriends.map(f => ({ plan_id: plan.id, user_id: f.id }))
+      )
+    }
+
+    setLoading(false)
+    reset()
+    onCreated()
   }
 
   return (
@@ -133,17 +142,47 @@ export default function CreatePlanModal({ visible, onClose, onCreated, userId }:
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={s.form} showsVerticalScrollIndicator={false}>
+        <ScrollView style={s.form} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <Text style={s.label}>Titolo *</Text>
           <TextInput style={s.input} placeholder="Es. Weekend a Berlino"
             placeholderTextColor={colors.textPlaceholder} value={title} onChangeText={setTitle} />
 
           <Text style={s.label}>Location *</Text>
-          <TextInput style={s.input} placeholder="Es. Berlino, Volt Milano, Nepal..."
-            placeholderTextColor={colors.textPlaceholder} value={location} onChangeText={setLocation} />
+          <LocationSearch
+            value={location}
+            onSelect={(name, lat, lon) => {
+              setLocation(name)
+              setLatitude(lat)
+              setLongitude(lon)
+            }}
+          />
+
+          <Text style={s.label}>Attività</Text>
+          <View style={s.activitiesGrid}>
+            {ACTIVITIES.map(act => (
+              <TouchableOpacity
+                key={act.value}
+                style={[s.actOption, activity === act.value && s.actOptionActive]}
+                onPress={() => setActivity(activity === act.value ? '' : act.value)}
+              >
+                <Text style={s.actIcon}>{act.icon}</Text>
+                <Text style={[s.actLabel, activity === act.value && s.actLabelActive]}>
+                  {act.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           <DateInput label="Data inizio *" value={startDate} onChange={setStartDate} />
           <DateInput label="Data fine (opzionale)" value={endDate} onChange={setEndDate} />
+
+          <Text style={s.label}>Con chi? (opzionale)</Text>
+          <FriendSearch
+            currentUserId={userId}
+            selected={taggedFriends}
+            onAdd={p => setTaggedFriends(prev => [...prev, p])}
+            onRemove={id => setTaggedFriends(prev => prev.filter(p => p.id !== id))}
+          />
 
           <Text style={s.label}>Descrizione (opzionale)</Text>
           <TextInput style={[s.input, s.textArea]} placeholder="Dettagli, orari, note..."
@@ -198,6 +237,17 @@ const s = StyleSheet.create({
   dateMonth: { width: 60, textAlign: 'center' },
   dateYear: { flex: 1, textAlign: 'center' },
   textArea: { height: 80, textAlignVertical: 'top' },
+  activitiesGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs,
+  },
+  actOption: {
+    width: '22%', backgroundColor: colors.input, borderRadius: radii.md,
+    padding: spacing.sm, alignItems: 'center', borderWidth: 1, borderColor: colors.inputBorder,
+  },
+  actOptionActive: { borderColor: colors.primary, backgroundColor: colors.primaryDim },
+  actIcon: { fontSize: 22, marginBottom: spacing.xs },
+  actLabel: { color: colors.textDim, fontSize: 10, textAlign: 'center' },
+  actLabelActive: { color: colors.primary },
   visibilityRow: { flexDirection: 'row', gap: spacing.sm + 2, marginTop: spacing.xs },
   visOption: {
     flex: 1, backgroundColor: colors.input, borderRadius: radii.md,

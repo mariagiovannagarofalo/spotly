@@ -1,3 +1,5 @@
+import { decode } from 'base64-arraybuffer'
+import * as FileSystem from 'expo-file-system'
 import * as ImagePicker from 'expo-image-picker'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
@@ -58,16 +60,16 @@ export default function ProfileScreen() {
 
     setUploadingAvatar(true)
     const asset = result.assets[0]
-    const ext = asset.uri.split('.').pop() ?? 'jpg'
+    const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpg'
     const path = `${userId}/avatar.${ext}`
 
-    const response = await fetch(asset.uri)
-    const blob = await response.blob()
-    const arrayBuffer = await blob.arrayBuffer()
+    const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    })
 
     const { error: uploadError } = await supabase.storage
       .from('avatars')
-      .upload(path, arrayBuffer, { contentType: `image/${ext}`, upsert: true })
+      .upload(path, decode(base64), { contentType: `image/${ext}`, upsert: true })
 
     if (uploadError) {
       Alert.alert('Errore upload', uploadError.message)

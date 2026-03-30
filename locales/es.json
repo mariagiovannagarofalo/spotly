@@ -77,7 +77,8 @@
     "joined": "✓ Unido",
     "people_going_one": "{{count}} persona va",
     "people_going_other": "{{count}} personas van",
-    "be_first": "Sé el primero en unirte"
+    "be_first": "Sé el primero en unirte",
+    "user_default": "usuario"
   },
   "filter": {
     "all": "Todos",

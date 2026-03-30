@@ -77,7 +77,8 @@
     "joined": "✓ Joined",
     "people_going_one": "{{count}} persona ci va",
     "people_going_other": "{{count}} persone ci vanno",
-    "be_first": "Sii il primo a unirti"
+    "be_first": "Sii il primo a unirti",
+    "user_default": "utente"
   },
   "filter": {
     "all": "Tutti",

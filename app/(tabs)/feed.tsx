@@ -41,6 +41,11 @@ export default function Feed() {
     setLoading(false)
   }
 
+  async function handleDelete(planId: string) {
+    await supabase.from('plans').delete().eq('id', planId)
+    fetchPlans()
+  }
+
   async function handleJoin(planId: string) {
     if (!userId) return
     const alreadyJoined = plans
@@ -85,6 +90,7 @@ export default function Feed() {
               currentUserId={userId}
               onJoin={() => handleJoin(item.id)}
               onEdit={item.user_id === userId ? () => { setEditingPlan(item); setModalVisible(true) } : undefined}
+              onDelete={item.user_id === userId ? () => handleDelete(item.id) : undefined}
             />
           )}
         />

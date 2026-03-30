@@ -1,4 +1,6 @@
-import { Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { ActionSheetIOS, Alert, Image, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import i18n from '../../lib/i18n'
 import { colors, font, radii, spacing } from '../../lib/theme'
 import { Plan } from '../../types'
 
@@ -7,15 +9,16 @@ type Props = {
   currentUserId: string | null
   onJoin: () => void
   onEdit?: () => void
+  onDelete?: () => void
 }
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('it-IT', {
+  return new Date(date + 'T12:00:00').toLocaleDateString(i18n.locale, {
     day: 'numeric', month: 'short', year: 'numeric',
   })
 }
 
-export default function PlanCard({ plan, currentUserId, onJoin, onEdit }: Props) {
+export default function PlanCard({ plan, currentUserId, onJoin, onEdit, onDelete }: Props) {
   const joinCount = plan.plan_participants?.length ?? 0
   const hasJoined = plan.plan_participants?.some(pp => pp.user_id === currentUserId)
   const isOwner = plan.profiles?.id === currentUserId
@@ -23,6 +26,39 @@ export default function PlanCard({ plan, currentUserId, onJoin, onEdit }: Props)
   const dateLabel = plan.end_date
     ? `${formatDate(plan.start_date)} → ${formatDate(plan.end_date)}`
     : formatDate(plan.start_date)
+
+  function showMenu() {
+    const confirmDelete = () => {
+      Alert.alert(i18n.t('plan.delete_confirm'), i18n.t('plan.delete_confirm_body'), [
+        { text: i18n.t('plan.cancel'), style: 'cancel' },
+        { text: i18n.t('plan.delete'), style: 'destructive', onPress: onDelete },
+      ])
+    }
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [i18n.t('plan.cancel'), i18n.t('plan.edit_title'), i18n.t('plan.delete_confirm')],
+          cancelButtonIndex: 0,
+          destructiveButtonIndex: 2,
+        },
+        (idx) => {
+          if (idx === 1) onEdit?.()
+          if (idx === 2) confirmDelete()
+        }
+      )
+    } else {
+      Alert.alert(plan.title, undefined, [
+        { text: i18n.t('plan.cancel'), style: 'cancel' },
+        { text: i18n.t('plan.edit_title'), onPress: onEdit },
+        { text: i18n.t('plan.delete_confirm'), style: 'destructive', onPress: confirmDelete },
+      ])
+    }
+  }
+
+  const joinLabel = joinCount > 0
+    ? i18n.t(joinCount === 1 ? 'plan.people_going_one' : 'plan.people_going_other', { count: joinCount })
+    : i18n.t('plan.be_first')
 
   return (
     <View style={[s.card, { borderLeftColor: plan.color ?? colors.primary }]}>
@@ -40,9 +76,14 @@ export default function PlanCard({ plan, currentUserId, onJoin, onEdit }: Props)
             </View>
           )}
           <View style={{ flex: 1 }}>
-            <Text style={s.username}>@{plan.profiles?.username ?? 'utente'}</Text>
+            <Text style={s.username}>@{plan.profiles?.username ?? i18n.t('plan.user_default')}</Text>
             <Text style={s.date}>{dateLabel}</Text>
           </View>
+          {isOwner && (onEdit || onDelete) && (
+            <TouchableOpacity style={s.dotsBtn} onPress={showMenu} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="ellipsis-vertical" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={s.titleRow}>
@@ -63,25 +104,17 @@ export default function PlanCard({ plan, currentUserId, onJoin, onEdit }: Props)
         ) : null}
 
         <View style={s.footer}>
-          <Text style={s.joinCount}>
-            {joinCount > 0
-              ? `${joinCount} ${joinCount === 1 ? 'persona' : 'persone'} ci vanno`
-              : 'Sii il primo a unirti'}
-          </Text>
-          {isOwner && onEdit ? (
-            <TouchableOpacity style={s.editButton} onPress={onEdit}>
-              <Text style={s.editButtonText}>✏️ Modifica</Text>
-            </TouchableOpacity>
-          ) : !isOwner ? (
+          <Text style={s.joinCount}>{joinLabel}</Text>
+          {!isOwner && (
             <TouchableOpacity
               style={[s.joinButton, hasJoined && s.joinedButton]}
               onPress={onJoin}
             >
               <Text style={[s.joinText, hasJoined && s.joinedText]}>
-                {hasJoined ? '✓ Joined' : 'JOIN'}
+                {hasJoined ? i18n.t('plan.joined') : i18n.t('plan.join')}
               </Text>
             </TouchableOpacity>
-          ) : null}
+          )}
         </View>
       </View>
     </View>
@@ -114,6 +147,7 @@ const s = StyleSheet.create({
   avatarText: { color: colors.white, ...font.label },
   username: { color: colors.textMuted, ...font.label },
   date: { color: colors.textDim, ...font.small, marginTop: 2 },
+  dotsBtn: { padding: spacing.xs },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
   title: { color: colors.white, ...font.heading, flex: 1 },
   activityBadge: {
@@ -128,10 +162,7 @@ const s = StyleSheet.create({
     gap: spacing.xs, marginBottom: spacing.sm,
   },
   location: { color: colors.primary, ...font.label },
-  linkRow: {
-    marginBottom: spacing.sm + 4,
-    paddingVertical: spacing.xs,
-  },
+  linkRow: { marginBottom: spacing.sm + 4, paddingVertical: spacing.xs },
   linkText: { color: colors.primary, ...font.small, textDecorationLine: 'underline' },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   joinCount: { color: colors.textDim, ...font.label },
@@ -142,9 +173,4 @@ const s = StyleSheet.create({
   joinedButton: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.primary },
   joinText: { color: colors.white, ...font.buttonSm },
   joinedText: { color: colors.primary },
-  editButton: {
-    borderRadius: radii.pill, paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.border,
-  },
-  editButtonText: { color: colors.textMuted, ...font.buttonSm },
 })

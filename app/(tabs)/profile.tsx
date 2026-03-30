@@ -3,7 +3,9 @@ import * as ImagePicker from 'expo-image-picker'
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import EditProfileModal from '../../components/profile/EditProfileModal'
+import CreatePlanModal from '../../components/feed/CreatePlanModal'
 import PlanCard from '../../components/feed/PlanCard'
+import i18n from '../../lib/i18n'
 import { supabase } from '../../lib/supabase'
 import { colors, font, radii, spacing } from '../../lib/theme'
 import { Plan, Profile } from '../../types'
@@ -14,6 +16,8 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [editVisible, setEditVisible] = useState(false)
+  const [planModalVisible, setPlanModalVisible] = useState(false)
+  const [editingPlan, setEditingPlan] = useState<Plan | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -44,7 +48,7 @@ export default function ProfileScreen() {
   async function handlePickAvatar() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') {
-      Alert.alert('Permesso necessario', 'Consenti l\'accesso alla galleria nelle impostazioni.')
+      Alert.alert(i18n.t('profile.permission_needed'), i18n.t('profile.permission_body'))
       return
     }
 
@@ -64,7 +68,7 @@ export default function ProfileScreen() {
     const path = `${userId}/avatar.${ext}`
 
     if (!asset.base64) {
-      Alert.alert('Errore', 'Impossibile leggere la foto.')
+      Alert.alert(i18n.t('plan.error'), i18n.t('profile.photo_error'))
       setUploadingAvatar(false)
       return
     }
@@ -74,7 +78,7 @@ export default function ProfileScreen() {
       .upload(path, decode(asset.base64), { contentType: `image/${ext}`, upsert: true })
 
     if (uploadError) {
-      Alert.alert('Errore upload', uploadError.message)
+      Alert.alert(i18n.t('plan.upload_error'), uploadError.message)
       setUploadingAvatar(false)
       return
     }
@@ -85,6 +89,11 @@ export default function ProfileScreen() {
     await supabase.from('profiles').update({ avatar_url: avatarUrl }).eq('id', userId)
     setUploadingAvatar(false)
     fetchProfile(userId!)
+  }
+
+  async function handleDeletePlan(planId: string) {
+    await supabase.from('plans').delete().eq('id', planId)
+    if (userId) fetchMyPlans(userId)
   }
 
   async function handleJoin(planId: string) {
@@ -100,9 +109,9 @@ export default function ProfileScreen() {
   }
 
   async function handleLogout() {
-    Alert.alert('Esci', "Vuoi uscire dall'account?", [
-      { text: 'Annulla', style: 'cancel' },
-      { text: 'Esci', style: 'destructive', onPress: () => supabase.auth.signOut() },
+    Alert.alert(i18n.t('profile.logout_confirm'), i18n.t('profile.logout_body'), [
+      { text: i18n.t('profile.logout_cancel'), style: 'cancel' },
+      { text: i18n.t('profile.logout'), style: 'destructive', onPress: () => supabase.auth.signOut() },
     ])
   }
 
@@ -124,9 +133,9 @@ export default function ProfileScreen() {
         ListHeaderComponent={
           <View>
             <View style={s.header}>
-              <Text style={s.headerTitle}>profilo</Text>
+              <Text style={s.headerTitle}>{i18n.t('profile.title')}</Text>
               <TouchableOpacity onPress={handleLogout}>
-                <Text style={s.logoutBtn}>Esci</Text>
+                <Text style={s.logoutBtn}>{i18n.t('profile.logout')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -156,24 +165,39 @@ export default function ProfileScreen() {
             </View>
 
             <TouchableOpacity style={s.editButton} onPress={() => setEditVisible(true)}>
-              <Text style={s.editButtonText}>Modifica profilo</Text>
+              <Text style={s.editButtonText}>{i18n.t('profile.edit')}</Text>
             </TouchableOpacity>
 
             <View style={s.divider} />
-            <Text style={s.sectionTitle}>I miei piani ({plans.length})</Text>
+            <Text style={s.sectionTitle}>{i18n.t('profile.my_plans', { count: plans.length })}</Text>
           </View>
         }
         ListEmptyComponent={
           <View style={s.empty}>
-            <Text style={s.emptyText}>Nessun piano ancora.</Text>
-            <Text style={s.emptySubtext}>Creane uno dal Feed!</Text>
+            <Text style={s.emptyText}>{i18n.t('profile.no_plans')}</Text>
+            <Text style={s.emptySubtext}>{i18n.t('profile.no_plans_hint')}</Text>
           </View>
         }
         renderItem={({ item }) => (
-          <PlanCard plan={item} currentUserId={userId} onJoin={() => handleJoin(item.id)} />
+          <PlanCard
+            plan={item}
+            currentUserId={userId}
+            onJoin={() => handleJoin(item.id)}
+            onEdit={() => { setEditingPlan(item); setPlanModalVisible(true) }}
+            onDelete={() => handleDeletePlan(item.id)}
+          />
         )}
         contentContainerStyle={{ paddingBottom: spacing.xxl }}
         showsVerticalScrollIndicator={false}
+      />
+
+      <CreatePlanModal
+        visible={planModalVisible}
+        plan={editingPlan ?? undefined}
+        onClose={() => { setPlanModalVisible(false); setEditingPlan(null) }}
+        onCreated={() => { setPlanModalVisible(false); setEditingPlan(null); if (userId) fetchMyPlans(userId) }}
+        onDeleted={() => { setPlanModalVisible(false); setEditingPlan(null); if (userId) fetchMyPlans(userId) }}
+        userId={userId}
       />
 
       {profile && (

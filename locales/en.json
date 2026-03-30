@@ -77,7 +77,8 @@
     "joined": "✓ Joined",
     "people_going_one": "{{count}} person going",
     "people_going_other": "{{count}} people going",
-    "be_first": "Be the first to join"
+    "be_first": "Be the first to join",
+    "user_default": "user"
   },
   "filter": {
     "all": "All",

@@ -1,7 +1,7 @@
 import * as Location from 'expo-location'
 import { useFocusEffect } from 'expo-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ActionSheetIOS, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import MapView, { Callout, Marker, Region } from 'react-native-maps'
 import FilterBar, { DEFAULT_FILTERS, PlanFilters } from '../../components/shared/FilterBar'
 import SearchBar from '../../components/shared/SearchBar'
@@ -22,6 +22,7 @@ export default function MapScreen() {
   const [filters, setFilters] = useState<PlanFilters>(DEFAULT_FILTERS)
   const [searchQuery, setSearchQuery] = useState('')
   const [modalVisible, setModalVisible] = useState(false)
+  const [editingPlan, setEditingPlan] = useState<Plan | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const mapRef = useRef<MapView>(null)
 
@@ -57,6 +58,44 @@ export default function MapScreen() {
     setPlans((data as Plan[]) || [])
   }
 
+  async function handleDeletePlan(plan: Plan) {
+    Alert.alert(i18n.t('plan.delete_confirm'), i18n.t('plan.delete_confirm_body'), [
+      { text: i18n.t('plan.cancel'), style: 'cancel' },
+      {
+        text: i18n.t('plan.delete'), style: 'destructive', onPress: async () => {
+          await supabase.from('plans').delete().eq('id', plan.id)
+          fetchPlans()
+        }
+      },
+    ])
+  }
+
+  function showMenu(plan: Plan) {
+    const doEdit = () => { setEditingPlan(plan); setModalVisible(true) }
+    const doDelete = () => handleDeletePlan(plan)
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [i18n.t('plan.cancel'), i18n.t('plan.edit_title'), i18n.t('plan.delete_confirm')],
+          cancelButtonIndex: 0,
+          destructiveButtonIndex: 2,
+          title: plan.title,
+        },
+        (idx) => {
+          if (idx === 1) doEdit()
+          if (idx === 2) doDelete()
+        }
+      )
+    } else {
+      Alert.alert(plan.title, undefined, [
+        { text: i18n.t('plan.cancel'), style: 'cancel' },
+        { text: i18n.t('plan.edit_title'), onPress: doEdit },
+        { text: i18n.t('plan.delete_confirm'), style: 'destructive', onPress: doDelete },
+      ])
+    }
+  }
+
   function formatDate(date: string) {
     return new Date(date).toLocaleDateString(i18n.locale, { day: 'numeric', month: 'short' })
   }
@@ -65,30 +104,37 @@ export default function MapScreen() {
     <View style={s.container}>
       <MapView ref={mapRef} style={s.map} initialRegion={INITIAL_REGION}
         mapType="mutedStandard" showsUserLocation>
-        {filterPlans(plans, filters, userId, searchQuery).map(plan => (
-          <Marker
-            key={plan.id}
-            coordinate={{ latitude: (plan as any).latitude, longitude: (plan as any).longitude }}
-          >
-            <View style={[s.pin, { backgroundColor: plan.color ?? colors.primary }]}>
-              <Text style={s.pinText}>📍</Text>
-            </View>
-            <Callout style={s.callout}>
-              <View style={s.calloutInner}>
-                <Text style={s.calloutUsername}>@{plan.profiles?.username}</Text>
-                <Text style={s.calloutTitle}>{plan.title}</Text>
-                <Text style={s.calloutLocation}>{plan.location}</Text>
-                <Text style={s.calloutDate}>{formatDate(plan.start_date)}</Text>
+        {filterPlans(plans, filters, userId, searchQuery).map(plan => {
+          const isOwner = plan.user_id === userId
+          return (
+            <Marker
+              key={plan.id}
+              coordinate={{ latitude: (plan as any).latitude, longitude: (plan as any).longitude }}
+            >
+              <View style={[s.pin, { backgroundColor: plan.color ?? colors.primary }]}>
+                <Text style={s.pinText}>📍</Text>
               </View>
-            </Callout>
-          </Marker>
-        ))}
+              <Callout
+                style={s.callout}
+                onPress={() => { if (isOwner) showMenu(plan) }}
+              >
+                <View style={s.calloutInner}>
+                  <Text style={s.calloutUsername}>@{plan.profiles?.username}</Text>
+                  <Text style={s.calloutTitle}>{plan.title}</Text>
+                  <Text style={s.calloutLocation}>{plan.location}</Text>
+                  <Text style={s.calloutDate}>{formatDate(plan.start_date)}</Text>
+                  {isOwner && <Text style={s.calloutDots}>···</Text>}
+                </View>
+              </Callout>
+            </Marker>
+          )
+        })}
       </MapView>
 
       <View style={s.header}>
         <Text style={s.logo}>{i18n.t('map.title')}</Text>
         <View style={s.headerRight}>
-          <TouchableOpacity style={s.newButton} onPress={() => setModalVisible(true)}>
+          <TouchableOpacity style={s.newButton} onPress={() => { setEditingPlan(null); setModalVisible(true) }}>
             <Text style={s.newButtonText}>{i18n.t('feed.new_plan')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={s.locateBtn} onPress={locateUser}>
@@ -114,8 +160,10 @@ export default function MapScreen() {
 
       <CreatePlanModal
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onCreated={() => { setModalVisible(false); fetchPlans() }}
+        plan={editingPlan ?? undefined}
+        onClose={() => { setModalVisible(false); setEditingPlan(null) }}
+        onCreated={() => { setModalVisible(false); setEditingPlan(null); fetchPlans() }}
+        onDeleted={() => { setModalVisible(false); setEditingPlan(null); fetchPlans() }}
         userId={userId}
       />
     </View>
@@ -145,23 +193,27 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: radii.pill,
     width: 40, height: 40, justifyContent: 'center', alignItems: 'center',
   },
-  locateText: { color: colors.white, fontSize: 22 },
+  locateText: { color: colors.white, ...font.heading },
   refreshBtn: {
     backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: radii.pill,
     width: 40, height: 40, justifyContent: 'center', alignItems: 'center',
   },
-  refreshText: { color: colors.white, fontSize: 20 },
+  refreshText: { color: colors.white, ...font.heading },
   pin: {
     width: 36, height: 36, borderRadius: 18,
     justifyContent: 'center', alignItems: 'center',
   },
-  pinText: { fontSize: 18 },
+  pinText: { ...font.body },
   callout: { width: 200 },
   calloutInner: { padding: spacing.sm, gap: 2 },
   calloutUsername: { color: colors.textSecondary, ...font.small },
   calloutTitle: { ...font.label, fontWeight: '700', color: colors.black },
   calloutLocation: { color: colors.primary, ...font.label },
   calloutDate: { color: colors.textSecondary, ...font.small },
+  calloutDots: {
+    color: colors.textSecondary, ...font.label,
+    textAlign: 'right', marginTop: spacing.xs, letterSpacing: 2,
+  },
   empty: {
     position: 'absolute', bottom: 100, left: spacing.md, right: spacing.md,
     backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: radii.md,

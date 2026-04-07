@@ -4,12 +4,14 @@ import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View }
 import FilterBar, { DEFAULT_FILTERS, PlanFilters } from '../../components/shared/FilterBar'
 import SearchBar from '../../components/shared/SearchBar'
 import CreatePlanModal from '../../components/feed/CreatePlanModal'
+import CreateGroupModal from '../../components/groups/CreateGroupModal'
+import CreateMenu from '../../components/shared/CreateMenu'
 import PlanCard from '../../components/feed/PlanCard'
 import i18n from '../../lib/i18n'
 import { filterPlans } from '../../lib/filterPlans'
 import { supabase } from '../../lib/supabase'
 import { colors, font, radii, spacing } from '../../lib/theme'
-import { Plan } from '../../types'
+import { Group, Plan } from '../../types'
 
 export default function Feed() {
   const [plans, setPlans] = useState<Plan[]>([])
@@ -19,12 +21,27 @@ export default function Feed() {
   const [modalVisible, setModalVisible] = useState(false)
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
+  const [menuVisible, setMenuVisible] = useState(false)
+  const [groupModalVisible, setGroupModalVisible] = useState(false)
+  const [userGroups, setUserGroups] = useState<Group[]>([])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserId(user.id)
+      if (user) {
+        setUserId(user.id)
+        fetchUserGroups(user.id)
+      }
     })
   }, [])
+
+  async function fetchUserGroups(uid: string) {
+    const { data } = await supabase
+      .from('group_members')
+      .select('group_id, groups (id, owner_id, name, created_at)')
+      .eq('user_id', uid)
+    const groups = (data ?? []).map((row: any) => row.groups).filter(Boolean) as Group[]
+    setUserGroups(groups)
+  }
 
   useFocusEffect(useCallback(() => {
     fetchPlans()
@@ -34,7 +51,7 @@ export default function Feed() {
     setLoading(true)
     const { data, error } = await supabase
       .from('plans')
-      .select('*, profiles (id, username, full_name, avatar_url), plan_participants (user_id)')
+      .select('*, profiles (id, username, full_name, avatar_url), plan_participants (user_id), plan_groups (group_id)')
       .order('created_at', { ascending: false })
 
     if (!error) setPlans(data || [])
@@ -64,13 +81,13 @@ export default function Feed() {
     <View style={s.container}>
       <View style={s.header}>
         <Text style={s.logo}>{i18n.t('feed.title')}</Text>
-        <TouchableOpacity style={s.newButton} onPress={() => { setEditingPlan(null); setModalVisible(true) }}>
-          <Text style={s.newButtonText}>{i18n.t('feed.new_plan')}</Text>
+        <TouchableOpacity style={s.newButton} onPress={() => setMenuVisible(true)}>
+          <Text style={s.newButtonText}>{i18n.t('feed.create_button')}</Text>
         </TouchableOpacity>
       </View>
 
       <SearchBar value={searchQuery} onChange={setSearchQuery} />
-      <FilterBar filters={filters} onChange={setFilters} />
+      <FilterBar filters={filters} onChange={setFilters} groups={userGroups} />
 
       {loading ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xxl }} />
@@ -103,6 +120,22 @@ export default function Feed() {
         onCreated={() => { setModalVisible(false); setEditingPlan(null); fetchPlans() }}
         onDeleted={() => { setModalVisible(false); setEditingPlan(null); fetchPlans() }}
         userId={userId}
+        userGroups={userGroups}
+      />
+
+      <CreateGroupModal
+        visible={groupModalVisible}
+        onClose={() => setGroupModalVisible(false)}
+        onCreated={() => { setGroupModalVisible(false); fetchUserGroups(userId!) }}
+        userId={userId}
+      />
+
+      <CreateMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onSelectPiano={() => { setEditingPlan(null); setModalVisible(true) }}
+        onSelectGruppo={() => setGroupModalVisible(true)}
+        onSelectChat={() => setGroupModalVisible(true)}
       />
     </View>
   )

@@ -30,6 +30,11 @@ export function filterPlans(plans: Plan[], filters: PlanFilters, userId: string 
 
     if (filters.color !== null && plan.color !== filters.color) return false
 
+    if (filters.groupId !== null) {
+      const inGroup = plan.plan_groups?.some(pg => pg.group_id === filters.groupId)
+      if (!inGroup) return false
+    }
+
     if (q) {
       const inTitle = plan.title.toLowerCase().includes(q)
       const inLocation = plan.location.toLowerCase().includes(q)

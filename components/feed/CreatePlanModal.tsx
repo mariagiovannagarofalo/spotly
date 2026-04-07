@@ -5,11 +5,13 @@ import {
   Alert, Image, KeyboardAvoidingView, Modal, Platform,
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import DatePickerModal from '../shared/DatePickerModal'
 import { geocode } from '../../lib/geocode'
 import i18n from '../../lib/i18n'
 import { supabase } from '../../lib/supabase'
 import { colors, font, planColors, radii, spacing } from '../../lib/theme'
-import { Plan, Profile } from '../../types'
+import { Group, Plan, Profile } from '../../types'
 import FriendSearch from './FriendSearch'
 import LocationSearch from './LocationSearch'
 
@@ -19,11 +21,17 @@ type Props = {
   onCreated: () => void
   onDeleted?: () => void
   userId: string | null
-  plan?: Plan  // se presente → modalità modifica
+  plan?: Plan
+  userGroups?: Group[]
 }
 
-type DateFields = { day: string; month: string; year: string }
 type Recurrence = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
+
+function formatDisplayDate(iso: string): string {
+  return new Date(iso + 'T12:00:00').toLocaleDateString(i18n.locale, {
+    day: 'numeric', month: 'long', year: 'numeric',
+  })
+}
 
 const TIMEZONES: { value: string; label: string; city: string }[] = [
   { value: 'Europe/Rome', label: 'CET', city: 'Roma' },
@@ -76,44 +84,12 @@ const ACTIVITIES = [
 const VISIBILITY_OPTIONS = [
   { value: 'public', labelKey: 'plan.visibility_public', icon: '🌍' },
   { value: 'friends', labelKey: 'plan.visibility_friends', icon: '👥' },
+  { value: 'groups', labelKey: 'plan.visibility_groups', icon: '🫂' },
   { value: 'private', labelKey: 'plan.visibility_private', icon: '🔒' },
 ]
 
-function parseDate(iso?: string | null): DateFields {
-  if (!iso) return emptyDate()
-  const [year, month, day] = iso.split('-')
-  return { day, month, year }
-}
 
-function toISO({ day, month, year }: DateFields): string | null {
-  if (!day || !month || !year) return null
-  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
-}
-
-function DateInput({ label, value, onChange }: {
-  label: string; value: DateFields; onChange: (v: DateFields) => void
-}) {
-  return (
-    <View>
-      <Text style={s.label}>{label}</Text>
-      <View style={s.dateRow}>
-        <TextInput style={[s.input, s.dateDay]} placeholder="GG"
-          placeholderTextColor={colors.textPlaceholder} keyboardType="number-pad"
-          maxLength={2} value={value.day} onChangeText={day => onChange({ ...value, day })} />
-        <TextInput style={[s.input, s.dateMonth]} placeholder="MM"
-          placeholderTextColor={colors.textPlaceholder} keyboardType="number-pad"
-          maxLength={2} value={value.month} onChangeText={month => onChange({ ...value, month })} />
-        <TextInput style={[s.input, s.dateYear]} placeholder="AAAA"
-          placeholderTextColor={colors.textPlaceholder} keyboardType="number-pad"
-          maxLength={4} value={value.year} onChangeText={year => onChange({ ...value, year })} />
-      </View>
-    </View>
-  )
-}
-
-const emptyDate = (): DateFields => ({ day: '', month: '', year: '' })
-
-export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted, userId, plan }: Props) {
+export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted, userId, plan, userGroups = [] }: Props) {
   const isEditing = !!plan
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -122,10 +98,13 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
   const [longitude, setLongitude] = useState<number | null>(null)
   const [activity, setActivity] = useState('')
   const [color, setColor] = useState(planColors[0])
-  const [startDate, setStartDate] = useState<DateFields>(emptyDate())
-  const [endDate, setEndDate] = useState<DateFields>(emptyDate())
+  const [startDate, setStartDate] = useState<string | null>(null)
+  const [endDate, setEndDate] = useState<string | null>(null)
+  const [pickerFor, setPickerFor] = useState<'start' | 'end' | null>(null)
   const [visibility, setVisibility] = useState('friends')
+  const [selectedGroups, setSelectedGroups] = useState<Group[]>([])
   const [taggedFriends, setTaggedFriends] = useState<Profile[]>([])
+  const [taggedGroupId, setTaggedGroupId] = useState<string | null>(null)
   const [allDay, setAllDay] = useState(true)
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
@@ -145,9 +124,12 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
       setLongitude((plan as any).longitude ?? null)
       setActivity(plan.activity ?? '')
       setColor(plan.color ?? planColors[0])
-      setStartDate(parseDate(plan.start_date))
-      setEndDate(parseDate(plan.end_date))
+      setStartDate(plan.start_date ?? null)
+      setEndDate(plan.end_date ?? null)
       setVisibility(plan.visibility)
+      // ripristina i gruppi visibilità
+      const planGroupIds = (plan.plan_groups ?? []).map(pg => pg.group_id)
+      setSelectedGroups(userGroups.filter(g => planGroupIds.includes(g.id)))
       setAllDay(plan.all_day ?? true)
       setStartTime(plan.start_time ?? '')
       setEndTime(plan.end_time ?? '')
@@ -199,8 +181,8 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
   function reset() {
     setTitle(''); setDescription(''); setLocation('')
     setLatitude(null); setLongitude(null); setActivity('')
-    setColor(planColors[0]); setStartDate(emptyDate()); setEndDate(emptyDate())
-    setVisibility('friends'); setTaggedFriends([])
+    setColor(planColors[0]); setStartDate(null); setEndDate(null)
+    setVisibility('friends'); setSelectedGroups([]); setTaggedFriends([]); setTaggedGroupId(null)
     setAllDay(true); setStartTime(''); setEndTime('')
     setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)
     setRecurrence('none'); setLink(''); setPhotoUrl(null)
@@ -211,8 +193,7 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
       Alert.alert(i18n.t('plan.required_fields'), i18n.t('plan.required_body'))
       return
     }
-    const start = toISO(startDate)
-    if (!start) {
+    if (!startDate) {
       Alert.alert(i18n.t('plan.required_date'), i18n.t('plan.required_date_body'))
       return
     }
@@ -237,8 +218,8 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
       location: location.trim(),
       activity: activity || null,
       color,
-      start_date: start,
-      end_date: toISO(endDate),
+      start_date: startDate,
+      end_date: endDate,
       visibility,
       latitude: lat,
       longitude: lon,
@@ -251,17 +232,47 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
       photo_url: photoUrl,
     }
 
+    // Recupera i membri del gruppo taggato (se presente)
+    let groupMemberIds: string[] = []
+    if (taggedGroupId) {
+      const { data: gm } = await supabase
+        .from('group_members')
+        .select('user_id')
+        .eq('group_id', taggedGroupId)
+      groupMemberIds = (gm ?? []).map((m: any) => m.user_id).filter((id: string) => id !== userId)
+    }
+
     if (isEditing) {
       const { error } = await supabase.from('plans').update(payload).eq('id', plan!.id)
       if (error) { Alert.alert(i18n.t('plan.error'), error.message); setLoading(false); return }
+      // aggiorna plan_groups
+      await supabase.from('plan_groups').delete().eq('plan_id', plan!.id)
+      if (visibility === 'groups' && selectedGroups.length > 0) {
+        await supabase.from('plan_groups').insert(
+          selectedGroups.map(g => ({ plan_id: plan!.id, group_id: g.id }))
+        )
+      }
     } else {
       const { data: newPlan, error } = await supabase
         .from('plans').insert({ user_id: userId, ...payload }).select().single()
       if (error) { Alert.alert(i18n.t('plan.error'), error.message); setLoading(false); return }
-      if (taggedFriends.length > 0 && newPlan) {
-        await supabase.from('plan_participants').insert(
-          taggedFriends.map(f => ({ plan_id: newPlan.id, user_id: f.id }))
-        )
+      if (newPlan) {
+        // partecipanti individuali + membri del gruppo taggato
+        const allParticipants = [
+          ...taggedFriends.map(f => f.id),
+          ...groupMemberIds,
+        ].filter((id, i, arr) => arr.indexOf(id) === i)
+        if (allParticipants.length > 0) {
+          await supabase.from('plan_participants').insert(
+            allParticipants.map(uid => ({ plan_id: newPlan.id, user_id: uid }))
+          )
+        }
+        // plan_groups per visibilità
+        if (visibility === 'groups' && selectedGroups.length > 0) {
+          await supabase.from('plan_groups').insert(
+            selectedGroups.map(g => ({ plan_id: newPlan.id, group_id: g.id }))
+          )
+        }
       }
     }
 
@@ -347,8 +358,21 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
             ))}
           </View>
 
-          <DateInput label={i18n.t('plan.start_date')} value={startDate} onChange={setStartDate} />
-          <DateInput label={i18n.t('plan.end_date')} value={endDate} onChange={setEndDate} />
+          <Text style={s.label}>{i18n.t('plan.start_date')}</Text>
+          <TouchableOpacity style={s.datePickerBtn} onPress={() => setPickerFor('start')}>
+            <Text style={[s.datePickerText, !startDate && s.datePickerPlaceholder]}>
+              {startDate ? formatDisplayDate(startDate) : i18n.t('plan.date_start_placeholder')}
+            </Text>
+            <Ionicons name="calendar-outline" size={18} color={colors.textDim} />
+          </TouchableOpacity>
+
+          <Text style={s.label}>{i18n.t('plan.end_date')}</Text>
+          <TouchableOpacity style={s.datePickerBtn} onPress={() => setPickerFor('end')}>
+            <Text style={[s.datePickerText, !endDate && s.datePickerPlaceholder]}>
+              {endDate ? formatDisplayDate(endDate) : i18n.t('plan.date_end_placeholder')}
+            </Text>
+            <Ionicons name="calendar-outline" size={18} color={colors.textDim} />
+          </TouchableOpacity>
 
           {/* Time */}
           <Text style={s.label}>{i18n.t('plan.time_label')}</Text>
@@ -431,6 +455,26 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
             onAdd={p => setTaggedFriends(prev => [...prev, p])}
             onRemove={id => setTaggedFriends(prev => prev.filter(p => p.id !== id))}
           />
+          {userGroups.length > 0 && (
+            <View style={s.groupTagRow}>
+              <Text style={s.groupTagLabel}>{i18n.t('plan.tag_group_label')}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={{ flexDirection: 'row', gap: spacing.xs }}>
+                  {userGroups.map(g => (
+                    <TouchableOpacity
+                      key={g.id}
+                      style={[s.groupTagChip, taggedGroupId === g.id && s.groupTagChipActive]}
+                      onPress={() => setTaggedGroupId(taggedGroupId === g.id ? null : g.id)}
+                    >
+                      <Text style={[s.groupTagChipText, taggedGroupId === g.id && s.groupTagChipTextActive]}>
+                        👥 {g.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          )}
 
           {/* Photo */}
           <Text style={s.label}>{i18n.t('plan.photo_label')}</Text>
@@ -474,11 +518,35 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
               >
                 <Text style={s.visIcon}>{opt.icon}</Text>
                 <Text style={[s.visLabel, visibility === opt.value && s.visLabelActive]}>
-                  {i18n.t(opt.labelKey)}
+                  {i18n.t((opt as any).labelKey)}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
+
+          {visibility === 'groups' && userGroups.length > 0 && (
+            <View style={s.groupVisSection}>
+              <Text style={s.groupVisLabel}>{i18n.t('plan.group_visibility_pick')}</Text>
+              {userGroups.map(g => {
+                const isSelected = selectedGroups.some(sg => sg.id === g.id)
+                return (
+                  <TouchableOpacity
+                    key={g.id}
+                    style={[s.groupVisRow, isSelected && s.groupVisRowActive]}
+                    onPress={() => setSelectedGroups(prev =>
+                      isSelected ? prev.filter(sg => sg.id !== g.id) : [...prev, g]
+                    )}
+                  >
+                    <Text style={s.groupVisName}>👥 {g.name}</Text>
+                    <Text style={s.groupVisCheck}>{isSelected ? '✓' : ''}</Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          )}
+          {visibility === 'groups' && userGroups.length === 0 && (
+            <Text style={s.groupVisEmpty}>{i18n.t('plan.group_visibility_empty')}</Text>
+          )}
 
           <TouchableOpacity style={[s.createButton, { backgroundColor: color }]} onPress={handleSave} disabled={loading}>
             <Text style={s.createButtonText}>
@@ -486,6 +554,16 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
             </Text>
           </TouchableOpacity>
         </ScrollView>
+
+        <DatePickerModal
+          visible={pickerFor !== null}
+          value={pickerFor === 'start' ? startDate : endDate}
+          onSelect={iso => {
+            if (pickerFor === 'start') setStartDate(iso)
+            else setEndDate(iso)
+          }}
+          onClose={() => setPickerFor(null)}
+        />
       </KeyboardAvoidingView>
     </Modal>
   )
@@ -512,10 +590,18 @@ const s = StyleSheet.create({
     backgroundColor: colors.input, borderRadius: radii.md, padding: spacing.sm + 6,
     ...font.body, color: colors.white, borderWidth: 1, borderColor: colors.inputBorder,
   },
-  dateRow: { flexDirection: 'row', gap: spacing.sm },
-  dateDay: { width: 60, textAlign: 'center' },
-  dateMonth: { width: 60, textAlign: 'center' },
-  dateYear: { flex: 1, textAlign: 'center' },
+  datePickerBtn: {
+    backgroundColor: colors.input,
+    borderRadius: radii.md,
+    padding: spacing.sm + 6,
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  datePickerText: { ...font.body, color: colors.white },
+  datePickerPlaceholder: { color: colors.textPlaceholder },
   textArea: { height: 80, textAlignVertical: 'top' },
   activitiesGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs,
@@ -592,6 +678,31 @@ const s = StyleSheet.create({
     width: 28, height: 28, justifyContent: 'center', alignItems: 'center',
   },
   photoRemoveText: { color: colors.white, fontSize: 14, fontWeight: '700' },
+  groupTagRow: { marginTop: spacing.sm },
+  groupTagLabel: { color: colors.textDim, ...font.small, marginBottom: spacing.xs },
+  groupTagChip: {
+    backgroundColor: colors.input, borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm + 4, paddingVertical: spacing.xs + 2,
+    borderWidth: 1, borderColor: colors.inputBorder,
+  },
+  groupTagChipActive: { backgroundColor: colors.primaryDim, borderColor: colors.primary },
+  groupTagChipText: { color: colors.textDim, ...font.small },
+  groupTagChipTextActive: { color: colors.primary, fontWeight: '700' },
+  groupVisSection: {
+    marginTop: spacing.sm, backgroundColor: colors.input,
+    borderRadius: radii.md, borderWidth: 1, borderColor: colors.inputBorder,
+    overflow: 'hidden',
+  },
+  groupVisLabel: { color: colors.textMuted, ...font.small, padding: spacing.sm },
+  groupVisRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm + 4, paddingVertical: spacing.sm,
+    borderTopWidth: 1, borderTopColor: colors.border,
+  },
+  groupVisRowActive: { backgroundColor: colors.primaryDim },
+  groupVisName: { color: colors.white, ...font.body },
+  groupVisCheck: { color: colors.primary, ...font.heading },
+  groupVisEmpty: { color: colors.textDim, ...font.small, marginTop: spacing.xs },
   createButton: {
     backgroundColor: colors.primary, borderRadius: radii.md + 2,
     padding: spacing.md, alignItems: 'center', marginTop: spacing.xl, marginBottom: spacing.xxl,

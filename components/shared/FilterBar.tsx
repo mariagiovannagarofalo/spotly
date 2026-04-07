@@ -1,12 +1,14 @@
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import i18n from '../../lib/i18n'
 import { colors, font, planColors, radii, spacing } from '../../lib/theme'
+import { Group } from '../../types'
 
 export type PlanFilters = {
   time: 'all' | 'today' | 'week' | 'month'
   activity: string
   onlyMine: boolean
   color: string | null
+  groupId: string | null
 }
 
 export const DEFAULT_FILTERS: PlanFilters = {
@@ -14,6 +16,7 @@ export const DEFAULT_FILTERS: PlanFilters = {
   activity: 'all',
   onlyMine: false,
   color: null,
+  groupId: null,
 }
 
 const TIME_OPTIONS: { value: PlanFilters['time']; labelKey: string }[] = [
@@ -39,11 +42,12 @@ type Props = {
   filters: PlanFilters
   onChange: (f: PlanFilters) => void
   dark?: boolean
+  groups?: Group[]
 }
 
-export default function FilterBar({ filters, onChange, dark }: Props) {
+export default function FilterBar({ filters, onChange, dark, groups }: Props) {
   const hasActive = filters.time !== 'all' || filters.activity !== 'all'
-    || filters.onlyMine || filters.color !== null
+    || filters.onlyMine || filters.color !== null || filters.groupId !== null
 
   const bg = dark ? 'rgba(10,10,10,0.85)' : colors.bg
 
@@ -112,6 +116,29 @@ export default function FilterBar({ filters, onChange, dark }: Props) {
           />
         ))}
       </ScrollView>
+
+      {/* Row 4: Gruppi */}
+      {groups && groups.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.row}>
+          <TouchableOpacity
+            style={[s.chip, filters.groupId === null && s.chipActive]}
+            onPress={() => onChange({ ...filters, groupId: null })}
+          >
+            <Text style={[s.chipText, filters.groupId === null && s.chipTextActive]}>{i18n.t('filter.all_groups')}</Text>
+          </TouchableOpacity>
+          {groups.map(g => (
+            <TouchableOpacity
+              key={g.id}
+              style={[s.chip, filters.groupId === g.id && s.chipActive]}
+              onPress={() => onChange({ ...filters, groupId: filters.groupId === g.id ? null : g.id })}
+            >
+              <Text style={[s.chipText, filters.groupId === g.id && s.chipTextActive]}>
+                {g.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
     </View>
   )
 }

@@ -7,6 +7,14 @@ export type Profile = {
   created_at: string
 }
 
+export type Group = {
+  id: string
+  owner_id: string
+  name: string
+  created_at: string
+  group_members?: { user_id: string; profiles?: Profile }[]
+}
+
 export type Plan = {
   id: string
   user_id: string
@@ -24,8 +32,9 @@ export type Plan = {
   recurrence?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
   link?: string
   photo_url?: string
-  visibility: 'public' | 'friends' | 'private'
+  visibility: 'public' | 'friends' | 'groups' | 'private'
   created_at: string
   profiles: Profile
   plan_participants: { user_id: string }[]
+  plan_groups?: { group_id: string }[]
 }

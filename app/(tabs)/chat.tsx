@@ -31,16 +31,32 @@ export default function ChatScreen() {
   }
 
   async function fetchChats(uid: string) {
-    const { data } = await supabase
+    // Piani dove l'utente è owner
+    const { data: owned } = await supabase
       .from('plans')
       .select('*, profiles (id, username, full_name), plan_participants (user_id)')
-      .or(`user_id.eq.${uid},plan_participants.user_id.eq.${uid}`)
+      .eq('user_id', uid)
       .order('created_at', { ascending: false })
 
-    const withParticipants = (data as Plan[] || []).filter(
-      p => (p.plan_participants?.length ?? 0) > 0
-    )
-    setPlans(withParticipants)
+    // Piani dove l'utente è partecipante
+    const { data: joined } = await supabase
+      .from('plan_participants')
+      .select('plan_id, plans (*, profiles (id, username, full_name), plan_participants (user_id))')
+      .eq('user_id', uid)
+
+    const joinedPlans = (joined ?? []).map((row: any) => row.plans).filter(Boolean) as Plan[]
+
+    // Merge e deduplicazione per id
+    const all = [...(owned ?? []), ...joinedPlans]
+    const seen = new Set<string>()
+    const unique = all.filter(p => {
+      if (seen.has(p.id)) return false
+      seen.add(p.id)
+      return true
+    })
+
+    // Solo piani con almeno un partecipante (hanno una chat attiva)
+    setPlans(unique.filter(p => (p.plan_participants?.length ?? 0) > 0))
   }
 
   async function fetchGroups(uid: string) {

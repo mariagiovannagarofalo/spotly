@@ -7,6 +7,7 @@ import { colors, font, radii, spacing } from '../lib/theme'
 export default function Auth() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [username, setUsername] = useState('')
   const [isLogin, setIsLogin] = useState(true)
   const [loading, setLoading] = useState(false)
 
@@ -16,7 +17,27 @@ export default function Auth() {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) Alert.alert(i18n.t('auth.error'), error.message)
     } else {
-      const { error } = await supabase.auth.signUp({ email, password })
+      const trimmedUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '')
+      if (!trimmedUsername) {
+        Alert.alert(i18n.t('auth.error'), i18n.t('auth.username_taken'))
+        setLoading(false)
+        return
+      }
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', trimmedUsername)
+        .maybeSingle()
+      if (existing) {
+        Alert.alert(i18n.t('auth.error'), i18n.t('auth.username_taken'))
+        setLoading(false)
+        return
+      }
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { username: trimmedUsername } },
+      })
       if (error) Alert.alert(i18n.t('auth.error'), error.message)
       else Alert.alert(i18n.t('auth.check_email'))
     }
@@ -47,6 +68,11 @@ export default function Auth() {
         <TextInput style={s.input} placeholder={i18n.t('auth.password')}
           placeholderTextColor={colors.textPlaceholder}
           value={password} onChangeText={setPassword} secureTextEntry />
+        {!isLogin && (
+          <TextInput style={s.input} placeholder={i18n.t('auth.username_placeholder')}
+            placeholderTextColor={colors.textPlaceholder}
+            value={username} onChangeText={setUsername} autoCapitalize="none" />
+        )}
 
         <TouchableOpacity style={s.button} onPress={handleAuth} disabled={loading}>
           <Text style={s.buttonText}>

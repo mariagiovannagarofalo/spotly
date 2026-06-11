@@ -1,3 +1,4 @@
+import i18n from '../../lib/i18n'
 import { useEffect, useRef, useState } from 'react'
 import {
   FlatList, KeyboardAvoidingView, Platform,
@@ -76,7 +77,7 @@ export default function ChatRoom() {
         </TouchableOpacity>
         <View style={s.headerInfo}>
           <Text style={s.headerTitle} numberOfLines={1}>{planTitle}</Text>
-          <Text style={s.headerSub}>chat del piano</Text>
+          <Text style={s.headerSub}>{i18n.t('chat.subtitle')}</Text>
         </View>
       </View>
 
@@ -94,7 +95,7 @@ export default function ChatRoom() {
       <View style={s.inputRow}>
         <TextInput
           style={s.input}
-          placeholder="Scrivi un messaggio..."
+          placeholder={i18n.t('chat.placeholder')}
           placeholderTextColor={colors.textPlaceholder}
           value={text}
           onChangeText={setText}

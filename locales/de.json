@@ -15,7 +15,10 @@
     "reset_sent_body": "Überprüfe dein Postfach, um dein Passwort zurückzusetzen.",
     "insert_email": "E-Mail eingeben",
     "insert_email_body": "Gib deine E-Mail in das Feld oben ein und versuche es erneut.",
-    "error": "Fehler"
+    "error": "Fehler",
+    "username": "Benutzername",
+    "username_placeholder": "@benutzername",
+    "username_taken": "Benutzername bereits vergeben, bitte versuche einen anderen."
   },
   "feed": {
     "title": "spotly",
@@ -183,6 +186,27 @@
   "common": {
     "close": "Schließen"
   },
-  "months": ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"],
-  "days_short": ["Mo","Di","Mi","Do","Fr","Sa","So"]
+  "months": [
+    "Januar",
+    "Februar",
+    "März",
+    "April",
+    "Mai",
+    "Juni",
+    "Juli",
+    "August",
+    "September",
+    "Oktober",
+    "November",
+    "Dezember"
+  ],
+  "days_short": [
+    "Mo",
+    "Di",
+    "Mi",
+    "Do",
+    "Fr",
+    "Sa",
+    "So"
+  ]
 }

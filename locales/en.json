@@ -15,7 +15,10 @@
     "reset_sent_body": "Check your inbox to reset your password.",
     "insert_email": "Enter your email",
     "insert_email_body": "Type your email in the field above, then try again.",
-    "error": "Error"
+    "error": "Error",
+    "username": "Username",
+    "username_placeholder": "@username",
+    "username_taken": "Username already taken, please try a different one."
   },
   "feed": {
     "title": "spotly",
@@ -183,6 +186,27 @@
   "common": {
     "close": "Close"
   },
-  "months": ["January","February","March","April","May","June","July","August","September","October","November","December"],
-  "days_short": ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+  "months": [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December"
+  ],
+  "days_short": [
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri",
+    "Sat",
+    "Sun"
+  ]
 }

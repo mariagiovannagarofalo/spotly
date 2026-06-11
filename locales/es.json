@@ -15,7 +15,10 @@
     "reset_sent_body": "Revisa tu bandeja para restablecer tu contraseña.",
     "insert_email": "Introduce tu correo",
     "insert_email_body": "Escribe tu correo en el campo de arriba e inténtalo de nuevo.",
-    "error": "Error"
+    "error": "Error",
+    "username": "Nombre de usuario",
+    "username_placeholder": "@usuario",
+    "username_taken": "Nombre de usuario ya en uso, prueba con uno diferente."
   },
   "feed": {
     "title": "spotly",
@@ -183,6 +186,27 @@
   "common": {
     "close": "Cerrar"
   },
-  "months": ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"],
-  "days_short": ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"]
+  "months": [
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre"
+  ],
+  "days_short": [
+    "Lun",
+    "Mar",
+    "Mié",
+    "Jue",
+    "Vie",
+    "Sáb",
+    "Dom"
+  ]
 }

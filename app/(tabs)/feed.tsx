@@ -32,6 +32,7 @@ export default function Feed() {
       if (user) {
         setUserId(user.id)
         fetchUserGroups(user.id)
+        fetchPlans(user.id)
       }
     })
   }, [])
@@ -46,22 +47,20 @@ export default function Feed() {
   }
 
   useFocusEffect(useCallback(() => {
-    if (userId) fetchPlans()
+    if (userId) fetchPlans(userId)
   }, [userId]))
 
-  async function fetchPlans() {
-    if (!userId) return
+  async function fetchPlans(uid: string) {
     setLoading(true)
 
-    // Prendi gli id delle persone che raggiungi (accepted)
     const { data: reaches } = await supabase
       .from('reaches')
       .select('reached_id')
-      .eq('reacher_id', userId)
+      .eq('reacher_id', uid)
       .eq('status', 'accepted')
 
     const reachedIds = (reaches ?? []).map((r: any) => r.reached_id)
-    const visibleIds = [userId, ...reachedIds]
+    const visibleIds = [uid, ...reachedIds]
 
     const { data, error } = await supabase
       .from('plans')
@@ -75,7 +74,7 @@ export default function Feed() {
 
   async function handleDelete(planId: string) {
     await supabase.from('plans').delete().eq('id', planId)
-    fetchPlans()
+    if (userId) fetchPlans(userId)
   }
 
   async function handleJoin(planId: string) {
@@ -89,7 +88,7 @@ export default function Feed() {
     } else {
       await supabase.from('plan_participants').insert({ plan_id: planId, user_id: userId })
     }
-    fetchPlans()
+    if (userId) fetchPlans(userId)
   }
 
   return (
@@ -137,8 +136,8 @@ export default function Feed() {
         visible={modalVisible}
         plan={editingPlan ?? undefined}
         onClose={() => { setModalVisible(false); setEditingPlan(null) }}
-        onCreated={() => { setModalVisible(false); setEditingPlan(null); fetchPlans() }}
-        onDeleted={() => { setModalVisible(false); setEditingPlan(null); fetchPlans() }}
+        onCreated={() => { setModalVisible(false); setEditingPlan(null); if (userId) fetchPlans(userId) }}
+        onDeleted={() => { setModalVisible(false); setEditingPlan(null); if (userId) fetchPlans(userId) }}
         userId={userId}
         userGroups={userGroups}
       />

@@ -351,9 +351,6 @@ export default function CreatePlanModal({ visible, onClose, onCreated, onDeleted
                 onPress={() => setActivity(activity === act.value ? '' : act.value)}
               >
                 <Text style={s.actIcon}>{act.icon}</Text>
-                <Text style={[s.actLabel, activity === act.value && { color }]}>
-                  {i18n.t(act.labelKey)}
-                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -607,8 +604,8 @@ const s = StyleSheet.create({
     flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs,
   },
   actOption: {
-    width: '22%', backgroundColor: colors.input, borderRadius: radii.md,
-    padding: spacing.sm, alignItems: 'center', borderWidth: 1, borderColor: colors.inputBorder,
+    width: 44, height: 44, backgroundColor: colors.input, borderRadius: radii.md,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.inputBorder,
   },
   actOptionActive: { borderColor: colors.primary, backgroundColor: colors.primaryDim },
   actIcon: { fontSize: 22, marginBottom: spacing.xs },

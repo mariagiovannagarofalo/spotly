@@ -183,6 +183,34 @@
     "permission_needed": "Permission needed",
     "permission_body": "Allow access to your gallery in settings."
   },
+  "explore": {
+    "title": "explore",
+    "search_placeholder": "Search username or name...",
+    "suggested": "Suggested",
+    "suggested_empty": "No suggestions at the moment.",
+    "results": "Results",
+    "no_results": "No users found.",
+    "reachers": "{{count}} reached you",
+    "reaching": "You're reaching {{count}} people"
+  },
+  "reach": {
+    "reach": "Reach",
+    "requested": "Requested",
+    "reaching": "Reaching",
+    "unreachh": "Unreach",
+    "request_sent": "Request sent!",
+    "request_sent_body": "The user will receive your request.",
+    "requests": "Requests",
+    "no_requests": "No incoming requests.",
+    "accept": "Accept",
+    "decline": "Decline"
+  },
+  "user_profile": {
+    "plans": "Plans ({{count}})",
+    "no_plans": "No public plans.",
+    "private_account": "Private account",
+    "private_body": "Reach this user to see their plans."
+  },
   "common": {
     "close": "Close"
   },

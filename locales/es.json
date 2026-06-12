@@ -183,6 +183,34 @@
     "permission_needed": "Permiso necesario",
     "permission_body": "Permite el acceso a tu galería en ajustes."
   },
+  "explore": {
+    "title": "explorar",
+    "search_placeholder": "Buscar usuario o nombre...",
+    "suggested": "Sugeridos",
+    "suggested_empty": "Sin sugerencias por ahora.",
+    "results": "Resultados",
+    "no_results": "No se encontraron usuarios.",
+    "reachers": "{{count}} te han alcanzado",
+    "reaching": "Estás alcanzando a {{count}} personas"
+  },
+  "reach": {
+    "reach": "Reach",
+    "requested": "Solicitado",
+    "reaching": "Alcanzando",
+    "unreachh": "Dejar de alcanzar",
+    "request_sent": "¡Solicitud enviada!",
+    "request_sent_body": "El usuario recibirá tu solicitud.",
+    "requests": "Solicitudes",
+    "no_requests": "Sin solicitudes entrantes.",
+    "accept": "Aceptar",
+    "decline": "Rechazar"
+  },
+  "user_profile": {
+    "plans": "Planes ({{count}})",
+    "no_plans": "Sin planes públicos.",
+    "private_account": "Cuenta privada",
+    "private_body": "Haz Reach para ver los planes de este usuario."
+  },
   "common": {
     "close": "Cerrar"
   },

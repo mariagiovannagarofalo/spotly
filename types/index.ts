@@ -4,6 +4,16 @@ export type Profile = {
   full_name: string
   avatar_url?: string
   bio?: string
+  is_private?: boolean
+  created_at: string
+}
+
+export type ReachStatus = 'pending' | 'accepted'
+
+export type Reach = {
+  reacher_id: string
+  reached_id: string
+  status: ReachStatus
   created_at: string
 }
 

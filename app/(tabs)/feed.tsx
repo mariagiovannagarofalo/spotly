@@ -1,4 +1,5 @@
-import { useFocusEffect } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import FilterBar, { DEFAULT_FILTERS, PlanFilters } from '../../components/shared/FilterBar'
@@ -14,6 +15,7 @@ import { colors, font, radii, spacing } from '../../lib/theme'
 import { Group, Plan } from '../../types'
 
 export default function Feed() {
+  const router = useRouter()
   const [plans, setPlans] = useState<Plan[]>([])
   const [filters, setFilters] = useState<PlanFilters>(DEFAULT_FILTERS)
   const [searchQuery, setSearchQuery] = useState('')
@@ -44,14 +46,27 @@ export default function Feed() {
   }
 
   useFocusEffect(useCallback(() => {
-    fetchPlans()
-  }, []))
+    if (userId) fetchPlans()
+  }, [userId]))
 
   async function fetchPlans() {
+    if (!userId) return
     setLoading(true)
+
+    // Prendi gli id delle persone che raggiungi (accepted)
+    const { data: reaches } = await supabase
+      .from('reaches')
+      .select('reached_id')
+      .eq('reacher_id', userId)
+      .eq('status', 'accepted')
+
+    const reachedIds = (reaches ?? []).map((r: any) => r.reached_id)
+    const visibleIds = [userId, ...reachedIds]
+
     const { data, error } = await supabase
       .from('plans')
       .select('*, profiles (id, username, full_name, avatar_url), plan_participants (user_id), plan_groups (group_id)')
+      .in('user_id', visibleIds)
       .order('created_at', { ascending: false })
 
     if (!error) setPlans(data || [])
@@ -81,9 +96,14 @@ export default function Feed() {
     <View style={s.container}>
       <View style={s.header}>
         <Text style={s.logo}>{i18n.t('feed.title')}</Text>
-        <TouchableOpacity style={s.newButton} onPress={() => setMenuVisible(true)}>
-          <Text style={s.newButtonText}>{i18n.t('feed.create_button')}</Text>
-        </TouchableOpacity>
+        <View style={s.headerRight}>
+          <TouchableOpacity onPress={() => router.push('/explore')} style={s.iconBtn}>
+            <Ionicons name="search-outline" size={22} color={colors.white} />
+          </TouchableOpacity>
+          <TouchableOpacity style={s.newButton} onPress={() => setMenuVisible(true)}>
+            <Text style={s.newButtonText}>{i18n.t('feed.create_button')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <SearchBar value={searchQuery} onChange={setSearchQuery} />
@@ -147,6 +167,8 @@ const s = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: spacing.md, paddingTop: 60, paddingBottom: spacing.md,
   },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  iconBtn: { padding: spacing.xs },
   logo: { color: colors.white, ...font.logo },
   newButton: {
     backgroundColor: colors.primary,
